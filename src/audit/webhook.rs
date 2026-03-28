@@ -250,9 +250,10 @@ pub fn send(config: &WebhookConfig, hook_event: &str, verdict: &Verdict) -> Resu
 
 /// Strips characters that could escape or inject into curl's `-K` config format.
 /// Curl config values are line-oriented; a bare newline would start a new
-/// directive. Double-quotes terminate the current quoted value.
+/// directive. Double-quotes terminate the current quoted value. Null bytes
+/// (\0) can cause unexpected truncation in C-based config parsing.
 fn sanitize_curl_value(s: &str) -> String {
     s.chars()
-        .filter(|c| *c != '\n' && *c != '\r' && *c != '"')
+        .filter(|c| *c != '\n' && *c != '\r' && *c != '"' && *c != '\0')
         .collect()
 }

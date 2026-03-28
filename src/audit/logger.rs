@@ -20,6 +20,15 @@ const MAX_ROTATED: u8 = 3;
 pub fn log(hook_event: &str, raw_input: &str, verdict: &Verdict) -> Result<()> {
     let log_dir = log_dir();
     fs::create_dir_all(&log_dir)?;
+
+    // Ensure directory is owner-only even when created by the logger
+    // (e.g. when a hook fires before `kiteguard init` runs).
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&log_dir, std::fs::Permissions::from_mode(0o700));
+    }
+
     let log_path = log_dir.join("audit.log");
 
     maybe_rotate(&log_path)?;
@@ -60,6 +69,15 @@ pub fn log(hook_event: &str, raw_input: &str, verdict: &Verdict) -> Result<()> {
         .create(true)
         .append(true)
         .open(&log_path)?;
+
+    // Keep the log file owner-only (chmod 600). This is a no-op on subsequent
+    // opens; on first creation it overrides the process umask.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&log_path, std::fs::Permissions::from_mode(0o600));
+    }
+
     writeln!(file, "{}", entry)?;
     Ok(())
 }
