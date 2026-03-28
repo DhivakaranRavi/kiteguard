@@ -68,7 +68,9 @@ pub struct WebhookConfig {
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 fn default_bash_patterns() -> Vec<String> {
     vec![
@@ -117,7 +119,7 @@ fn default_pii_types() -> Vec<String> {
 
 fn default_blocked_domains() -> Vec<String> {
     vec![
-        "169.254.169.254".into(),          // AWS/GCP metadata SSRF
+        "169.254.169.254".into(), // AWS/GCP metadata SSRF
         "metadata.google.internal".into(),
         "metadata.azure.com".into(),
     ]
@@ -131,8 +133,8 @@ pub fn load() -> Result<Policy> {
     if config_path.exists() {
         let content = std::fs::read_to_string(&config_path)
             .with_context(|| format!("Failed to read config: {}", config_path.display()))?;
-        let policy: Policy = serde_yaml::from_str(&content)
-            .with_context(|| "Failed to parse rules.yaml")?;
+        let policy: Policy =
+            serde_yaml::from_str(&content).with_context(|| "Failed to parse rules.yaml")?;
         Ok(policy)
     } else {
         // No config file — use secure defaults

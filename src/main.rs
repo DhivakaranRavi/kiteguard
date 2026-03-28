@@ -25,10 +25,10 @@ fn main() -> Result<()> {
     // Dispatch to the correct hook handler
     let verdict = match hook_event.as_str() {
         "UserPromptSubmit" => hooks::pre_prompt::handle(&input, &policy),
-        "PreToolUse"       => hooks::pre_tool::handle(&input, &policy),
-        "PostToolUse"      => hooks::post_tool::handle(&input, &policy),
-        "Stop"             => hooks::post_response::handle(&input, &policy),
-        _                  => Ok(engine::verdict::Verdict::Allow),
+        "PreToolUse" => hooks::pre_tool::handle(&input, &policy),
+        "PostToolUse" => hooks::post_tool::handle(&input, &policy),
+        "Stop" => hooks::post_response::handle(&input, &policy),
+        _ => Ok(engine::verdict::Verdict::Allow),
     };
 
     let verdict = verdict.unwrap_or_else(|_| {

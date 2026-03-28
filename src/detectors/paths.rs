@@ -68,14 +68,23 @@ fn glob_to_regex(pattern: &str) -> String {
                     i += 1;
                 }
             }
-            '*' => { result.push_str("[^/]*"); i += 1; }
-            '?' => { result.push('.'); i += 1; }
+            '*' => {
+                result.push_str("[^/]*");
+                i += 1;
+            }
+            '?' => {
+                result.push('.');
+                i += 1;
+            }
             '.' | '+' | '^' | '$' | '{' | '}' | '(' | ')' | '|' | '[' | ']' => {
                 result.push('\\');
                 result.push(chars[i]);
                 i += 1;
             }
-            c => { result.push(c); i += 1; }
+            c => {
+                result.push(c);
+                i += 1;
+            }
         }
     }
     result.push('$');

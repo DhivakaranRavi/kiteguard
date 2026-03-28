@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::engine::policy;
+use anyhow::Result;
 
 /// kiteguard policy — view and manage active policies
 pub fn run(args: &[String]) -> Result<()> {
@@ -24,10 +24,20 @@ fn list() -> Result<()> {
     if config_path.exists() {
         println!("Policy loaded from: {}\n", config_path.display());
     } else {
-        println!("Using built-in defaults (no rules.yaml found at {})\n", config_path.display());
+        println!(
+            "Using built-in defaults (no rules.yaml found at {})\n",
+            config_path.display()
+        );
     }
 
-    println!("Bash protection:        {}", if p.bash.enabled { "enabled" } else { "disabled" });
+    println!(
+        "Bash protection:        {}",
+        if p.bash.enabled {
+            "enabled"
+        } else {
+            "disabled"
+        }
+    );
     println!("  Block patterns:       {}", p.bash.block_patterns.len());
     println!("  Fail-closed:          {}", p.bash.block_on_error);
 
@@ -41,9 +51,19 @@ fn list() -> Result<()> {
     println!("  Redact in response:   {}", p.pii.redact_in_response);
     println!("  Active types:         {}", p.pii.types.join(", "));
 
-    println!("\nInjection detection:    {}", if p.injection.enabled { "enabled" } else { "disabled" });
+    println!(
+        "\nInjection detection:    {}",
+        if p.injection.enabled {
+            "enabled"
+        } else {
+            "disabled"
+        }
+    );
 
-    println!("\nURL blocklist:          {} entries", p.urls.blocklist.len());
+    println!(
+        "\nURL blocklist:          {} entries",
+        p.urls.blocklist.len()
+    );
 
     println!("\nWebhook:");
     match p.webhook {

@@ -1,5 +1,5 @@
-use anyhow::Result;
 use crate::engine::{policy::WebhookConfig, verdict::Verdict};
+use anyhow::Result;
 
 /// Sends an audit event to the configured webhook endpoint.
 /// Non-blocking best-effort — failures are silently dropped to avoid

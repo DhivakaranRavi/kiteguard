@@ -12,8 +12,8 @@ pub fn run() -> Result<()> {
 
     // Read existing settings or start fresh
     let mut settings: Value = if settings_path.exists() {
-        let content = fs::read_to_string(&settings_path)
-            .context("Failed to read ~/.claude/settings.json")?;
+        let content =
+            fs::read_to_string(&settings_path).context("Failed to read ~/.claude/settings.json")?;
         serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
     } else {
         serde_json::json!({})
@@ -40,7 +40,10 @@ pub fn run() -> Result<()> {
     println!("kiteguard initialized successfully!");
     println!("  Hooks registered in: {}", settings_path.display());
     println!("  Config directory:     {}", config_dir.display());
-    println!("  Audit log:            {}", config_dir.join("audit.log").display());
+    println!(
+        "  Audit log:            {}",
+        config_dir.join("audit.log").display()
+    );
     println!("\nEvery Claude Code session is now guarded.");
 
     Ok(())

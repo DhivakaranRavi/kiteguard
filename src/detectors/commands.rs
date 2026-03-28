@@ -1,5 +1,5 @@
-use regex::Regex;
 use crate::engine::verdict::Verdict;
+use regex::Regex;
 
 /// Scans a bash command against configured block patterns.
 pub fn scan(command: &str, patterns: &[String]) -> Option<Verdict> {

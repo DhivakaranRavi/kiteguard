@@ -9,8 +9,8 @@ pub fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
     match args.get(1).map(|s| s.as_str()) {
-        Some("init")   => init::run(),
-        Some("audit")  => audit::run(),
+        Some("init") => init::run(),
+        Some("audit") => audit::run(),
         Some("policy") => policy::run(&args[2..]),
         Some("--version") | Some("-V") => {
             println!("kiteguard {}", env!("CARGO_PKG_VERSION"));
@@ -29,7 +29,8 @@ pub fn run() -> Result<()> {
 }
 
 fn print_help() {
-    println!(r#"
+    println!(
+        r#"
 kiteguard — Runtime security guardrails for Claude Code
 
 USAGE:
@@ -43,5 +44,6 @@ COMMANDS:
 
 HOOKS (invoked automatically by Claude Code):
     Set CLAUDE_HOOK_EVENT=UserPromptSubmit|PreToolUse|PostToolUse|Stop
-"#);
+"#
+    );
 }

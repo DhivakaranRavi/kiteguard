@@ -1,7 +1,7 @@
+use crate::engine::{evaluator, policy::Policy, verdict::Verdict};
 use anyhow::Result;
 use serde::Deserialize;
 use serde_json::Value;
-use crate::engine::{policy::Policy, verdict::Verdict, evaluator};
 
 #[derive(Debug, Deserialize)]
 pub struct PreToolPayload {
@@ -19,9 +19,7 @@ pub fn handle(input: &str, policy: &Policy) -> Result<Verdict> {
 
     let verdict = match payload.tool_name.as_str() {
         "Bash" => {
-            let command = payload.tool_input["command"]
-                .as_str()
-                .unwrap_or("");
+            let command = payload.tool_input["command"].as_str().unwrap_or("");
             evaluator::evaluate_command(command, policy)
         }
         "Write" | "Edit" => {
@@ -39,9 +37,7 @@ pub fn handle(input: &str, policy: &Policy) -> Result<Verdict> {
             evaluator::evaluate_file_read(path, policy)
         }
         "WebFetch" => {
-            let url = payload.tool_input["url"]
-                .as_str()
-                .unwrap_or("");
+            let url = payload.tool_input["url"].as_str().unwrap_or("");
             evaluator::evaluate_url(url, policy)
         }
         "Task" => {

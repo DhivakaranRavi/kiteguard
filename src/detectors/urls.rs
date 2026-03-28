@@ -16,17 +16,20 @@ pub fn scan(url: &str, blocklist: &[String]) -> Option<Verdict> {
 
     // Hardcoded SSRF protections (cannot be disabled via config)
     let ssrf_targets = [
-        "169.254.169.254",           // AWS/GCP/Azure IMDS
+        "169.254.169.254", // AWS/GCP/Azure IMDS
         "metadata.google.internal",
         "metadata.azure.com",
-        "fd00:ec2::254",             // IPv6 AWS metadata
+        "fd00:ec2::254", // IPv6 AWS metadata
     ];
 
     for target in &ssrf_targets {
         if url_lower.contains(target) {
             return Some(Verdict::block(
                 "ssrf_metadata_endpoint",
-                format!("SSRF attempt blocked — access to cloud metadata endpoint: `{}`", target),
+                format!(
+                    "SSRF attempt blocked — access to cloud metadata endpoint: `{}`",
+                    target
+                ),
             ));
         }
     }
