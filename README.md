@@ -19,7 +19,7 @@
 ## Install
 
 ```bash
-curl -sSL https://kiteguard.dev/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/DhivakaranRavi/kiteguard/main/install.sh | bash
 ```
 
 One command. No dependencies. Works immediately on every Claude Code session.

@@ -8,7 +8,7 @@
 ## One-line install
 
 ```bash
-curl -sSL https://kiteguard.dev/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/DhivakaranRavi/kiteguard/main/install.sh | bash
 ```
 
 This:
@@ -56,5 +56,5 @@ kiteguard policy list
 ## Uninstall
 
 ```bash
-curl -sSL https://kiteguard.dev/uninstall.sh | bash
+curl -sSL https://raw.githubusercontent.com/DhivakaranRavi/kiteguard/main/uninstall.sh | bash
 ```
