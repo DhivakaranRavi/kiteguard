@@ -52,8 +52,16 @@ fn main() -> Result<()> {
         }
     });
 
-    // Log every event to audit log
-    audit::logger::log(&hook_event, &input, &verdict)?;
+    // Log every event to audit log.
+    // Non-fatal: a disk-full or permission error must NOT prevent verdict
+    // enforcement — a block verdict would silently escape as exit code 1
+    // (Rust error) rather than exit code 2 (Claude Code block signal).
+    if let Err(e) = audit::logger::log(&hook_event, &input, &verdict) {
+        eprintln!(
+            "[kiteguard] audit log failed ({}); continuing to enforce verdict",
+            e
+        );
+    }
 
     // Optionally send to webhook
     if let Some(ref webhook) = policy.webhook {

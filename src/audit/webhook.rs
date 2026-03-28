@@ -25,7 +25,7 @@ pub const SSRF_BLOCKED: &[&str] = &[
 ///    - Decimal integer: 2130706433
 ///    - Octal-dotted:    0177.0.0.1
 ///    - IPv4-mapped IPv6: ::ffff:127.0.0.1
-fn is_ssrf_safe(url: &str) -> bool {
+pub fn is_ssrf_safe(url: &str) -> bool {
     let lower = url.to_lowercase();
 
     // Layer 1: known hostname string-match

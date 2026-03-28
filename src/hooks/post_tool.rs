@@ -36,13 +36,35 @@ pub fn handle(input: &str, policy: &Policy) -> Result<Verdict> {
 }
 
 fn extract_content(response: &Value) -> String {
-    // Claude Code returns tool responses in various shapes
+    // Claude Code returns tool responses in various shapes.
+    // Plain string
     if let Some(s) = response.as_str() {
         return s.to_string();
     }
-    if let Some(s) = response["content"].as_str() {
+    // "content" key — may be a plain string OR a block array
+    // ([{"type":"text","text":"..."}]). Checking only .as_str() returns
+    // None for the array form, silently skipping all scans (scan bypass).
+    let content_val = &response["content"];
+    if let Some(s) = content_val.as_str() {
         return s.to_string();
     }
+    if let Some(blocks) = content_val.as_array() {
+        let text = blocks
+            .iter()
+            .filter_map(|block| {
+                if block["type"].as_str() == Some("text") {
+                    block["text"].as_str()
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        if !text.is_empty() {
+            return text;
+        }
+    }
+    // Fallback: plain "output" key (some tool wrappers use this shape)
     if let Some(s) = response["output"].as_str() {
         return s.to_string();
     }
