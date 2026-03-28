@@ -1,5 +1,5 @@
 use crate::engine::{evaluator, policy::Policy, verdict::Verdict};
-use anyhow::Result;
+use crate::error::Result;
 use serde::Deserialize;
 use serde_json::Value;
 

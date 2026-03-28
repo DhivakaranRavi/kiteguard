@@ -1,5 +1,6 @@
 use crate::engine::verdict::Verdict;
 use regex::Regex;
+use std::sync::OnceLock;
 
 /// PII detection patterns — scans text for personal identifiable information.
 static PII_PATTERNS: &[(&str, &str, &str)] = &[
@@ -31,22 +32,35 @@ static PII_PATTERNS: &[(&str, &str, &str)] = &[
     ),
 ];
 
+static COMPILED: OnceLock<Vec<(String, Regex, String)>> = OnceLock::new();
+
+fn compiled() -> &'static Vec<(String, Regex, String)> {
+    COMPILED.get_or_init(|| {
+        PII_PATTERNS
+            .iter()
+            .filter_map(|(pii_type, pat, desc)| {
+                Regex::new(pat)
+                    .ok()
+                    .map(|re| (pii_type.to_string(), re, desc.to_string()))
+            })
+            .collect()
+    })
+}
+
 /// Scans text for PII based on enabled types in policy.
 pub fn scan(text: &str, enabled_types: &[String]) -> Option<Verdict> {
-    for (pii_type, pattern, description) in PII_PATTERNS {
+    for (pii_type, re, description) in compiled() {
         if !enabled_types.iter().any(|t| t == pii_type) {
             continue;
         }
-        if let Ok(re) = Regex::new(pattern) {
-            if re.is_match(text) {
-                return Some(Verdict::block(
-                    format!("pii_{}", pii_type),
-                    format!(
-                        "{} — sending PII to Claude API is blocked by policy",
-                        description
-                    ),
-                ));
-            }
+        if re.is_match(text) {
+            return Some(Verdict::block(
+                format!("pii_{}", pii_type),
+                format!(
+                    "{} — sending PII to Claude API is blocked by policy",
+                    description
+                ),
+            ));
         }
     }
     None

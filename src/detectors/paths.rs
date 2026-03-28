@@ -35,10 +35,7 @@ fn matches_any(path: &str, patterns: &[String]) -> bool {
 
 fn expand_home(path: &str) -> String {
     if path.starts_with("~/") || path == "~" {
-        let home = dirs::home_dir()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .to_string();
+        let home = crate::util::home_dir().to_string_lossy().to_string();
         path.replacen('~', &home, 1)
     } else {
         path.to_string()

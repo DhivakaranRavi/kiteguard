@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use crate::error::Result;
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -130,21 +130,33 @@ fn default_blocked_domains() -> Vec<String> {
 pub fn load() -> Result<Policy> {
     let config_path = config_path();
 
-    if config_path.exists() {
+    let policy = if config_path.exists() {
         let content = std::fs::read_to_string(&config_path)
-            .with_context(|| format!("Failed to read config: {}", config_path.display()))?;
-        let policy: Policy =
-            serde_yaml::from_str(&content).with_context(|| "Failed to parse rules.yaml")?;
-        Ok(policy)
+            .map_err(|e| format!("Failed to read config {}: {}", config_path.display(), e))?;
+        serde_json::from_str::<Policy>(&content)
+            .map_err(|e| format!("Failed to parse rules.json: {}", e))?
     } else {
         // No config file — use secure defaults
-        Ok(Policy::default())
+        Policy::default()
+    };
+
+    // Validate user-supplied bash patterns are compilable regexes.
+    // Warn on stderr and skip invalid ones rather than refusing to start,
+    // so a single bad pattern doesn't disable all other protections.
+    for pattern in &policy.bash.block_patterns {
+        if regex::Regex::new(pattern).is_err() {
+            eprintln!(
+                "kiteguard: WARNING — invalid regex in rules.json bash.block_patterns: {:?} (skipping)",
+                pattern
+            );
+        }
     }
+
+    Ok(policy)
 }
 
 pub fn config_path() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
+    crate::util::home_dir()
         .join(".kiteguard")
-        .join("rules.yaml")
+        .join("rules.json")
 }

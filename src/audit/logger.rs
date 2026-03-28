@@ -1,7 +1,5 @@
 use crate::engine::verdict::Verdict;
-use anyhow::Result;
-use chrono::Utc;
-use serde_json::json;
+use crate::error::Result;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 
@@ -16,13 +14,14 @@ pub fn log(hook_event: &str, raw_input: &str, verdict: &Verdict) -> Result<()> {
         _ => "",
     };
 
-    let entry = json!({
-        "ts":       Utc::now().to_rfc3339(),
-        "hook":     hook_event,
-        "verdict":  verdict.as_str(),
-        "rule":     rule,
-        "input_hash": hash_input(raw_input),
-    });
+    let entry = format!(
+        r#"{{"ts":"{}","hook":"{}","verdict":"{}","rule":"{}","input_hash":"{}"}}"#,
+        crate::util::timestamp(),
+        hook_event,
+        verdict.as_str(),
+        rule,
+        hash_input(raw_input),
+    );
 
     let mut file = OpenOptions::new()
         .create(true)
@@ -34,7 +33,7 @@ pub fn log(hook_event: &str, raw_input: &str, verdict: &Verdict) -> Result<()> {
 }
 
 fn log_dir() -> std::path::PathBuf {
-    dirs::home_dir().unwrap_or_default().join(".kiteguard")
+    crate::util::home_dir().join(".kiteguard")
 }
 
 /// Hash the raw input so we don't store prompt content in audit log.

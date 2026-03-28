@@ -1,12 +1,9 @@
-use anyhow::Result;
+use crate::error::Result;
 use std::fs;
 
 /// kiteguard audit — pretty prints the local audit log
 pub fn run() -> Result<()> {
-    let log_path = dirs::home_dir()
-        .unwrap_or_default()
-        .join(".kiteguard")
-        .join("audit.log");
+    let log_path = crate::util::home_dir().join(".kiteguard").join("audit.log");
 
     if !log_path.exists() {
         println!("No audit log found. Run `kiteguard init` and use Claude Code first.");

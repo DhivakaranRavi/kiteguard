@@ -2,9 +2,11 @@ mod audit;
 mod cli;
 mod detectors;
 mod engine;
+mod error;
 mod hooks;
+mod util;
 
-use anyhow::Result;
+use error::Result;
 use std::io::{self, Read};
 
 fn main() -> Result<()> {

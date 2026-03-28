@@ -1,5 +1,6 @@
 use crate::engine::verdict::Verdict;
 use regex::Regex;
+use std::sync::OnceLock;
 
 /// Known prompt injection patterns.
 /// Detects attempts to override Claude's instructions via embedded text.
@@ -36,16 +37,25 @@ static INJECTION_PATTERNS: &[(&str, &str)] = &[
     ),
 ];
 
+static COMPILED: OnceLock<Vec<(Regex, String)>> = OnceLock::new();
+
+fn compiled() -> &'static Vec<(Regex, String)> {
+    COMPILED.get_or_init(|| {
+        INJECTION_PATTERNS
+            .iter()
+            .filter_map(|(pat, rule)| Regex::new(pat).ok().map(|re| (re, rule.to_string())))
+            .collect()
+    })
+}
+
 /// Scans text for prompt injection patterns.
 pub fn scan(text: &str) -> Option<Verdict> {
-    for (pattern, rule) in INJECTION_PATTERNS {
-        if let Ok(re) = Regex::new(pattern) {
-            if re.is_match(text) {
-                return Some(Verdict::block(
-                    *rule,
-                    format!("Prompt injection detected: {}", rule.replace('_', " ")),
-                ));
-            }
+    for (re, rule) in compiled() {
+        if re.is_match(text) {
+            return Some(Verdict::block(
+                rule.as_str(),
+                format!("Prompt injection detected: {}", rule.replace('_', " ")),
+            ));
         }
     }
     None

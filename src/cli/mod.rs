@@ -2,7 +2,7 @@ pub mod audit;
 pub mod init;
 pub mod policy;
 
-use anyhow::Result;
+use crate::error::Result;
 
 /// Entry point for CLI subcommands (when not invoked as a hook)
 pub fn run() -> Result<()> {

@@ -1,7 +1,7 @@
 use crate::engine::{policy::WebhookConfig, verdict::Verdict};
-use anyhow::Result;
+use crate::error::Result;
 
-/// Sends an audit event to the configured webhook endpoint.
+/// Sends an audit event to the configured webhook endpoint via curl.
 /// Non-blocking best-effort — failures are silently dropped to avoid
 /// impacting Claude Code's operation.
 pub fn send(config: &WebhookConfig, hook_event: &str, verdict: &Verdict) -> Result<()> {
@@ -9,20 +9,29 @@ pub fn send(config: &WebhookConfig, hook_event: &str, verdict: &Verdict) -> Resu
         return Ok(());
     }
 
-    let body = serde_json::json!({
-        "source":  "kiteguard",
-        "hook":    hook_event,
-        "verdict": verdict.as_str(),
-    });
+    let body = format!(
+        r#"{{"source":"kiteguard","hook":"{}","verdict":"{}"}}"#,
+        hook_event,
+        verdict.as_str()
+    );
 
-    let mut req = ureq::post(&config.url)
-        .set("Content-Type", "application/json")
-        .set("User-Agent", "kiteguard/0.1.0");
+    let mut cmd = std::process::Command::new("curl");
+    cmd.arg("-s")
+        .arg("-X")
+        .arg("POST")
+        .arg("-H")
+        .arg("Content-Type: application/json")
+        .arg("-H")
+        .arg("User-Agent: kiteguard/0.1.0")
+        .arg("-d")
+        .arg(&body);
 
     if let Some(ref token) = config.token {
-        req = req.set("Authorization", &format!("Bearer {}", token));
+        cmd.arg("-H")
+            .arg(format!("Authorization: Bearer {}", token));
     }
 
-    req.send_string(&body.to_string())?;
+    cmd.arg(&config.url);
+    let _ = cmd.output(); // best-effort, ignore errors
     Ok(())
 }

@@ -1,13 +1,15 @@
 use crate::engine::verdict::Verdict;
 use regex::Regex;
+use std::sync::OnceLock;
 
 /// Secret/credential detection patterns.
+/// NOTE: The generic "40-char alphanumeric" AWS secret pattern is intentionally
+/// omitted — it matches git SHAs, base64, and random IDs causing massive false
+/// positives. AWS secret keys are instead caught by the broader .env/token patterns.
 static SECRET_PATTERNS: &[(&str, &str)] = &[
-    // AWS Access Keys
+    // AWS Access Keys (highly specific prefix)
     (r"\bAKIA[0-9A-Z]{16}\b", "AWS access key"),
-    // AWS Secret Keys (40 char base62)
-    (r"\b[0-9a-zA-Z/+]{40}\b", "Possible AWS secret key"),
-    // GitHub tokens
+    // GitHub tokens (prefixed formats)
     (r"\bghp_[A-Za-z0-9]{36}\b", "GitHub personal access token"),
     (r"\bgho_[A-Za-z0-9]{36}\b", "GitHub OAuth token"),
     (r"\bghs_[A-Za-z0-9]{36}\b", "GitHub app token"),
@@ -43,16 +45,25 @@ static SECRET_PATTERNS: &[(&str, &str)] = &[
     ),
 ];
 
+static COMPILED: OnceLock<Vec<(Regex, String)>> = OnceLock::new();
+
+fn compiled() -> &'static Vec<(Regex, String)> {
+    COMPILED.get_or_init(|| {
+        SECRET_PATTERNS
+            .iter()
+            .filter_map(|(pat, desc)| Regex::new(pat).ok().map(|re| (re, desc.to_string())))
+            .collect()
+    })
+}
+
 /// Scans text for secrets and credentials.
 pub fn scan(text: &str) -> Option<Verdict> {
-    for (pattern, description) in SECRET_PATTERNS {
-        if let Ok(re) = Regex::new(pattern) {
-            if re.is_match(text) {
-                return Some(Verdict::block(
-                    "secret_detected",
-                    format!("{} detected in content", description),
-                ));
-            }
+    for (re, description) in compiled() {
+        if re.is_match(text) {
+            return Some(Verdict::block(
+                "secret_detected",
+                format!("{} detected in content", description),
+            ));
         }
     }
     None

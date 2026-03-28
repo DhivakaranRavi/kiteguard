@@ -1,5 +1,5 @@
 use crate::engine::policy;
-use anyhow::Result;
+use crate::error::Result;
 
 /// kiteguard policy — view and manage active policies
 pub fn run(args: &[String]) -> Result<()> {
