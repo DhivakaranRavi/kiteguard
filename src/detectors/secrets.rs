@@ -12,7 +12,7 @@ static SECRET_PATTERNS: &[(&str, &str)] = &[
     (r"\bgho_[A-Za-z0-9]{36}\b",                 "GitHub OAuth token"),
     (r"\bghs_[A-Za-z0-9]{36}\b",                 "GitHub app token"),
     // Generic API key patterns
-    (r"(?i)api[_-]?key\s*[:=]\s*['\"]?[A-Za-z0-9\-_\.]{20,}", "API key"),
+    (r#"(?i)api[_-]?key\s*[:=]\s*['"]*[A-Za-z0-9\-_\.]{20,}"#, "API key"),
     // JWT tokens
     (r"\beyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\b", "JWT token"),
     // Private key headers
@@ -25,7 +25,7 @@ static SECRET_PATTERNS: &[(&str, &str)] = &[
     // Generic Bearer tokens  
     (r"(?i)bearer\s+[A-Za-z0-9\-._~+/]{20,}",   "Bearer token"),
     // .env style secrets
-    (r"(?i)(SECRET|PASSWORD|PASSWD|TOKEN|API_KEY)\s*=\s*['\"]?[A-Za-z0-9\-_\.@#$%]{8,}", ".env secret value"),
+    (r#"(?i)(SECRET|PASSWORD|PASSWD|TOKEN|API_KEY)\s*=\s*['"]*[A-Za-z0-9\-_\.@#$%]{8,}"#, ".env secret value"),
 ];
 
 /// Scans text for secrets and credentials.
