@@ -18,11 +18,21 @@
 
 ## Install
 
+**Option 1 — Install script (quickest):**
 ```bash
 curl -sSL https://raw.githubusercontent.com/DhivakaranRavi/kiteguard/main/install.sh | bash
 ```
 
-One command. No dependencies. Works immediately on every Claude Code session.
+**Option 2 — Build from source (recommended for security-conscious users):**
+```bash
+git clone https://github.com/DhivakaranRavi/kiteguard.git
+cd kiteguard
+cargo build --release
+sudo install -m755 target/release/kiteguard /usr/local/bin/kiteguard
+kiteguard init
+```
+
+> No dependencies beyond a Rust toolchain. Get Rust at [rustup.rs](https://rustup.rs).
 
 ---
 
