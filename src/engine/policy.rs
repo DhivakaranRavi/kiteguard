@@ -130,14 +130,17 @@ fn default_blocked_domains() -> Vec<String> {
 pub fn load() -> Result<Policy> {
     let config_path = config_path();
 
-    let policy = if config_path.exists() {
-        let content = std::fs::read_to_string(&config_path)
-            .map_err(|e| format!("Failed to read config {}: {}", config_path.display(), e))?;
-        serde_json::from_str::<Policy>(&content)
-            .map_err(|e| format!("Failed to parse rules.json: {}", e))?
-    } else {
-        // No config file — use secure defaults
-        Policy::default()
+    // Atomically: open-and-read in one call (no TOCTOU exists() + read_to_string race).
+    let policy = match std::fs::read_to_string(&config_path) {
+        Ok(content) => serde_json::from_str::<Policy>(&content)
+            .map_err(|e| format!("Failed to parse rules.json: {}", e))?,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            // No config file — use secure defaults
+            Policy::default()
+        }
+        Err(e) => {
+            return Err(format!("Failed to read config {}: {}", config_path.display(), e).into())
+        }
     };
 
     // Validate user-supplied bash patterns are compilable regexes.

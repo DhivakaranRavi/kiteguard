@@ -17,9 +17,11 @@ fn main() -> Result<()> {
         return cli::run();
     }
 
-    // Read JSON payload from stdin (Claude Code passes it here)
+    // Read JSON payload from stdin (Claude Code passes it here).
+    // Cap at 10 MB to prevent memory exhaustion from crafted payloads.
+    const MAX_PAYLOAD: u64 = 10 * 1024 * 1024;
     let mut input = String::new();
-    io::stdin().read_to_string(&mut input)?;
+    io::stdin().take(MAX_PAYLOAD).read_to_string(&mut input)?;
 
     // Load policy config
     let policy = engine::policy::load()?;

@@ -24,9 +24,18 @@ pub fn scan_write(path: &str, block_patterns: &[String]) -> Option<Verdict> {
 
 fn matches_any(path: &str, patterns: &[String]) -> bool {
     let expanded = expand_home(path);
+
+    // Canonicalize to resolve symlinks so `~/.kiteguard/link -> /etc/passwd`
+    // doesn't bypass the `/etc/**` block. If the path doesn't exist yet
+    // (e.g. a write target), fall back to the expanded string form.
+    let canonical = std::fs::canonicalize(&expanded)
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|_| expanded.clone());
+
     for pattern in patterns {
         let expanded_pattern = expand_home(pattern);
-        if glob_match(&expanded_pattern, &expanded) {
+        // Check both the literal path and the resolved canonical path
+        if glob_match(&expanded_pattern, &expanded) || glob_match(&expanded_pattern, &canonical) {
             return true;
         }
     }

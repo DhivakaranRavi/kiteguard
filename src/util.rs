@@ -1,10 +1,16 @@
 use std::path::PathBuf;
 
 /// Returns the user's home directory using the HOME environment variable.
+/// Panics if HOME is unset — falling back to cwd would silently write
+/// config/logs into an attacker-controlled directory.
 pub fn home_dir() -> PathBuf {
-    std::env::var("HOME")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| PathBuf::from("."))
+    match std::env::var("HOME") {
+        Ok(h) if !h.is_empty() => PathBuf::from(h),
+        _ => {
+            eprintln!("kiteguard: fatal — HOME environment variable is not set");
+            std::process::exit(1);
+        }
+    }
 }
 
 /// Returns a UTC timestamp string in ISO 8601 format using only std.
