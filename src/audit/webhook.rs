@@ -190,14 +190,19 @@ pub fn send(config: &WebhookConfig, hook_event: &str, verdict: &Verdict) -> Resu
         }
     });
 
+    // Sanitize URL and token before embedding in curl's config format.
+    // Strip newlines and double-quotes to prevent injecting extra config
+    // directives if rules.json contains a crafted URL or token value.
+    let safe_url = sanitize_curl_value(&config.url);
     let mut curl_cfg = format!(
         "url = \"{url}\"\nrequest = POST\nheader = \"Content-Type: application/json\"\nheader = \"User-Agent: kiteguard/0.1.0\"\ndata = {body}",
-        url = config.url,
+        url = safe_url,
         body = body
     );
     if let Some(ref tok) = resolved_token {
         if !tok.is_empty() {
-            curl_cfg.push_str(&format!("\nheader = \"Authorization: Bearer {}\"", tok));
+            let safe_tok = sanitize_curl_value(tok);
+            curl_cfg.push_str(&format!("\nheader = \"Authorization: Bearer {}\"", safe_tok));
         }
     }
 
@@ -235,4 +240,13 @@ pub fn send(config: &WebhookConfig, hook_event: &str, verdict: &Verdict) -> Resu
         }
     }
     Ok(())
+}
+
+/// Strips characters that could escape or inject into curl's `-K` config format.
+/// Curl config values are line-oriented; a bare newline would start a new
+/// directive. Double-quotes terminate the current quoted value.
+fn sanitize_curl_value(s: &str) -> String {
+    s.chars()
+        .filter(|c| *c != '\n' && *c != '\r' && *c != '"')
+        .collect()
 }
