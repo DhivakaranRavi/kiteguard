@@ -52,65 +52,78 @@ kiteguard solves this by intercepting at **four critical points** in every Claud
 ## How it works
 
 ```mermaid
-graph TD
+graph LR
     DEV([Developer])
-    CC([Claude Code])
 
-    DEV -->|prompt| CC
-    CC  -->|hook event| KG
-    KG  -->|block or allow| CC
-    CC  -->|response| DEV
-
-    subgraph KG[KiteGuard Runtime]
+    subgraph PIPELINE[Claude Code Pipeline]
         direction TB
-
-        subgraph HOOKS[Hook Intercepts]
-            direction LR
-            H1[UserPromptSubmit]
-            H2[PreToolUse]
-            H3[PostToolUse]
-            H4[Stop]
-        end
-
-        subgraph ENGINE[Enforcement Engine]
-            direction LR
-            PE[Policy Engine]
-            DET[Detector Suite]
-        end
-
-        subgraph PERSIST[Persistence]
-            direction LR
-            LOG[Audit Logger]
-            STORE[(Storage)]
-        end
-
-        HOOKS --> ENGINE
-        ENGINE -->|verdict| HOOKS
-        HOOKS --> LOG
-        PE -.->|verify HMAC sig| STORE
-        LOG -.->|hash-chain append| STORE
+        P1[Prompt received]
+        P2[Tool call issued]
+        P3[Tool response loaded]
+        P4[Response ready]
     end
 
-    LOG -->|POST event| WH([Webhook])
+    subgraph KG[KiteGuard]
+        direction TB
+        H1[UserPromptSubmit\nBlock PII and injection]
+        H2[PreToolUse\nBlock commands and paths and URLs]
+        H3[PostToolUse\nScan loaded content]
+        H4[Stop\nRedact secrets and PII]
+        PE[Policy Engine]
+        DET[Detector Suite]
+        LOG[Audit Logger]
+    end
 
-    style DEV  fill:#e0f2fe,stroke:#0ea5e9,color:#0c4a6e
-    style CC   fill:#e0f2fe,stroke:#0ea5e9,color:#0c4a6e
-    style WH   fill:#f3e8ff,stroke:#9333ea,color:#3b0764
+    STORE[(kiteguard storage)]
+    WH([Webhook])
 
-    style KG    fill:#f8fafc,stroke:#334155,color:#0f172a
-    style HOOKS fill:#fef2f2,stroke:#dc2626,color:#7f1d1d
-    style H1    fill:#fef2f2,stroke:#dc2626,color:#7f1d1d
-    style H2    fill:#fef2f2,stroke:#dc2626,color:#7f1d1d
-    style H3    fill:#fef2f2,stroke:#dc2626,color:#7f1d1d
-    style H4    fill:#fef2f2,stroke:#dc2626,color:#7f1d1d
+    DEV -->|prompt| P1
+    P1  --> H1
+    H1 -->|allowed| P2
+    P2  --> H2
+    H2 -->|allowed| P3
+    P3  --> H3
+    H3 -->|allowed| P4
+    P4  --> H4
+    H4 -->|safe response| DEV
 
-    style ENGINE fill:#f0fdf4,stroke:#16a34a,color:#14532d
-    style PE     fill:#f0fdf4,stroke:#16a34a,color:#14532d
-    style DET    fill:#f0fdf4,stroke:#16a34a,color:#14532d
+    H1 --> PE
+    H2 --> PE
+    H3 --> PE
+    H4 --> PE
+    PE  --> DET
+    DET -->|verdict| H1
+    DET -->|verdict| H2
+    DET -->|verdict| H3
+    DET -->|verdict| H4
 
-    style PERSIST fill:#f1f5f9,stroke:#475569,color:#1e293b
-    style LOG     fill:#f1f5f9,stroke:#475569,color:#1e293b
-    style STORE   fill:#f1f5f9,stroke:#475569,color:#1e293b
+    H1  --> LOG
+    H2  --> LOG
+    H3  --> LOG
+    H4  --> LOG
+    PE  -.-> STORE
+    LOG -.-> STORE
+    LOG --> WH
+
+    style DEV  fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
+
+    style PIPELINE fill:#f8fafc,stroke:#94a3b8,color:#0f172a
+    style P1 fill:#f8fafc,stroke:#94a3b8,color:#334155
+    style P2 fill:#f8fafc,stroke:#94a3b8,color:#334155
+    style P3 fill:#f8fafc,stroke:#94a3b8,color:#334155
+    style P4 fill:#f8fafc,stroke:#94a3b8,color:#334155
+
+    style KG  fill:#fef9f0,stroke:#f59e0b,color:#78350f
+    style H1  fill:#fef2f2,stroke:#dc2626,color:#7f1d1d
+    style H2  fill:#fef2f2,stroke:#dc2626,color:#7f1d1d
+    style H3  fill:#fef2f2,stroke:#dc2626,color:#7f1d1d
+    style H4  fill:#fef2f2,stroke:#dc2626,color:#7f1d1d
+    style PE  fill:#f0fdf4,stroke:#16a34a,color:#14532d
+    style DET fill:#f0fdf4,stroke:#16a34a,color:#14532d
+    style LOG fill:#f0fdf4,stroke:#16a34a,color:#14532d
+
+    style STORE fill:#f1f5f9,stroke:#64748b,color:#1e293b
+    style WH    fill:#f3e8ff,stroke:#9333ea,color:#3b0764
 ```
 
 ---
