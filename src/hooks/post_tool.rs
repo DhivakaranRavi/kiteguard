@@ -5,8 +5,10 @@ use crate::engine::{policy::Policy, verdict::Verdict, evaluator};
 
 #[derive(Debug, Deserialize)]
 pub struct PostToolPayload {
+    #[allow(dead_code)]
     pub session_id: Option<String>,
     pub tool_name: String,
+    #[allow(dead_code)]
     pub tool_input: Value,
     pub tool_response: Value,
 }

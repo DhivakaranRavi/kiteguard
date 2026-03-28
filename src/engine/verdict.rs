@@ -1,4 +1,5 @@
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum Verdict {
     Allow,
     Block { rule: String, reason: String },
@@ -13,10 +14,12 @@ impl Verdict {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_allow(&self) -> bool {
         matches!(self, Verdict::Allow)
     }
 
+    #[allow(dead_code)]
     pub fn is_block(&self) -> bool {
         matches!(self, Verdict::Block { .. })
     }

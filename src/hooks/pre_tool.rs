@@ -5,6 +5,7 @@ use crate::engine::{policy::Policy, verdict::Verdict, evaluator};
 
 #[derive(Debug, Deserialize)]
 pub struct PreToolPayload {
+    #[allow(dead_code)]
     pub session_id: Option<String>,
     pub tool_name: String,
     pub tool_input: Value,

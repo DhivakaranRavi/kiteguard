@@ -5,6 +5,7 @@ use crate::engine::{policy::Policy, verdict::Verdict, evaluator};
 
 #[derive(Debug, Deserialize)]
 pub struct StopPayload {
+    #[allow(dead_code)]
     pub session_id: Option<String>,
     pub transcript: Vec<Value>,
 }
