@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/kiteguard.png" alt="kiteguard logo" width="180" />
+  <img src="docs/src/assets/kiteguard.png" alt="kiteguard logo" width="180" />
 </p>
 
 <p align="center">
@@ -51,6 +51,11 @@ kiteguard solves this by intercepting at **four critical points** in every Claud
 
 ## How it works
 
+<p align="center">
+  <img src="docs/src/assets/kiteguard-architecture.png" alt="KiteGuard architecture diagram" width="900" />
+</p>
+
+<!--
 ```mermaid
 graph LR
     DEV([Developer])
@@ -125,6 +130,7 @@ graph LR
     style STORE fill:#f1f5f9,stroke:#64748b,color:#1e293b
     style WH    fill:#f3e8ff,stroke:#9333ea,color:#3b0764
 ```
+-->
 
 ---
 
