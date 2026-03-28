@@ -17,10 +17,7 @@ pub fn run() -> Result<()> {
     let lines: Vec<&str> = content.lines().collect();
 
     println!("kiteguard audit log ({} events)\n", lines.len());
-    println!(
-        "{:<30} {:<25} {:<8} RULE",
-        "TIMESTAMP", "HOOK", "VERDICT"
-    );
+    println!("{:<30} {:<25} {:<8} RULE", "TIMESTAMP", "HOOK", "VERDICT");
     println!("{}", "-".repeat(90));
 
     for line in &lines {
