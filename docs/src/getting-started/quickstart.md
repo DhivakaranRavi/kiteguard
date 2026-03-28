@@ -39,16 +39,17 @@ kiteguard policy list
 
 ## Customize for your org
 
-Create `~/.kiteguard/rules.yaml` to add org-specific rules:
+Create `~/.kiteguard/rules.json` to add org-specific rules:
 
-```yaml
-file_paths:
-  block_read:
-    - "**/customer-data/**"
-
-urls:
-  blocklist:
-    - "internal.yourcompany.com"
+```json
+{
+  "file_paths": {
+    "block_read": ["**/customer-data/**"]
+  },
+  "urls": {
+    "blocklist": ["internal.yourcompany.com"]
+  }
+}
 ```
 
 → [Full configuration reference](../configuration/rules-yaml.md)

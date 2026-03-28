@@ -48,6 +48,6 @@ A compromised prompt could instruct Claude to remove kiteguard's own hooks from 
 
 ## Disabling a default path rule
 
-Remove the pattern from your `~/.kiteguard/rules.yaml`. There is no `disabled` flag.
+Remove the pattern from your `~/.kiteguard/rules.json`. There is no `disabled` flag.
 
 > **Warning:** Removing `~/.claude/settings.json` from `block_write` allows Claude to modify its own hook configuration. Only do this if you fully understand the implications.

@@ -14,7 +14,7 @@ The URL argument from `WebFetch` and `WebSearch` tool calls.
 
 1. Parse the URL to extract the host.
 2. Check against hardcoded SSRF targets (always, cannot be disabled).
-3. Check against `urls.block_domains` from `rules.yaml`.
+3. Check against `urls.block_domains` from `rules.json`.
 4. First match → `Verdict::Block`.
 
 ## SSRF protections (hardcoded)
@@ -27,7 +27,7 @@ The URL argument from `WebFetch` and `WebSearch` tool calls.
 | `169.254.169.123`           | AWS time sync               |
 | `100.100.100.200`           | Alibaba Cloud metadata      |
 
-These are **always blocked** even if `urls.block_domains` is empty or injection detection is disabled. Blocking cannot be overridden via `rules.yaml`.
+These are **always blocked** even if `urls.block_domains` is empty or injection detection is disabled. Blocking cannot be overridden via `rules.json`.
 
 ## Domain matching
 

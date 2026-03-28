@@ -49,7 +49,7 @@ Only the master `enabled` toggle is configurable. Individual patterns are hardco
 
 ## Why not configurable?
 
-If an attacker can convince Claude to modify your `rules.yaml` (e.g., by injecting text that escapes then gets processed as a command), they could disable injection detection. Hardcoding the patterns eliminates this attack surface.
+If an attacker can convince Claude to modify your `rules.json` (e.g., by injecting text that escapes then gets processed as a command), they could disable injection detection. Hardcoding the patterns eliminates this attack surface.
 
 ## False positives
 

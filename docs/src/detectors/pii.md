@@ -64,4 +64,4 @@ Pattern: `\b[A-Z]{1,2}\d{6,9}\b`
 
 ## Behaviour
 
-The PII detector is a reporter — it returns which PII type was found. The decision to block or allow is controlled by `pii.block_on_prompt` and `pii.block_on_response` in `rules.yaml`. See [PII Configuration](../configuration/pii.md).
+The PII detector is a reporter — it returns which PII type was found. The decision to block or allow is controlled by `pii.block_on_prompt` and `pii.block_on_response` in `rules.json`. See [PII Configuration](../configuration/pii.md).

@@ -35,7 +35,7 @@ Example: `'rm\s+-rf\s+/'` matches `rm -rf /`, `rm  -rf /tmp`, etc.
 
 ## Default patterns
 
-See `config/rules.yaml` for the full default set. Key defaults:
+See `config/rules.json` for the full default set. Key defaults:
 
 | Name               | Pattern                            |
 |--------------------|------------------------------------|
@@ -49,4 +49,4 @@ See `config/rules.yaml` for the full default set. Key defaults:
 
 ## Disabling a default rule
 
-Remove the pattern from your `~/.kiteguard/rules.yaml` — there is no `disabled` flag. kiteguard only loads what is in your config file.
+Remove the pattern from your `~/.kiteguard/rules.json` — there is no `disabled` flag. kiteguard only loads what is in your config file.

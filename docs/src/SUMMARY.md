@@ -10,7 +10,7 @@
 
 # Configuration
 
-- [rules.yaml Reference](configuration/rules-yaml.md)
+- [rules.json Reference](configuration/rules-yaml.md)
 - [Bash Protection](configuration/bash.md)
 - [File Path Protection](configuration/file-paths.md)
 - [PII Detection](configuration/pii.md)

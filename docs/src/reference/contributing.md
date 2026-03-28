@@ -30,7 +30,7 @@ pub fn scan(input: &str, policy: &Policy) -> Verdict {
 
 ## Adding a new pattern to an existing detector
 
-For user-configurable detectors (`commands`, `paths`, `urls`): add the pattern to `config/rules.yaml` and document it.
+For user-configurable detectors (`commands`, `paths`, `urls`): add the pattern to `config/rules.json` and document it.
 
 For hardcoded detectors (`secrets`, `injection`): add the pattern string to the constant array in the source file, add a test case, and update the documentation page.
 

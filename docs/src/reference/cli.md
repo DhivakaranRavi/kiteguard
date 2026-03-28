@@ -33,7 +33,7 @@ TIMESTAMP                      HOOK                      VERDICT    RULE
 
 ```bash
 kiteguard policy list    # show active policy summary
-kiteguard policy path    # print path to rules.yaml
+kiteguard policy path    # print path to rules.json
 ```
 
 ---

@@ -18,8 +18,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Append-only JSONL audit log at `~/.kiteguard/audit.log`
 - Optional webhook sink for central dashboards
 - CLI: `init`, `audit`, `policy` subcommands
-- `install.sh` with checksum verification
-- `uninstall.sh`
+- `scripts/install.sh` with checksum verification and build-from-source fallback
+- `scripts/uninstall.sh`
 
 ---
 

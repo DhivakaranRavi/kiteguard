@@ -20,7 +20,7 @@
 
 **Option 1 — Install script (quickest):**
 ```bash
-curl -sSL https://raw.githubusercontent.com/DhivakaranRavi/kiteguard/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/DhivakaranRavi/kiteguard/main/scripts/install.sh | bash
 ```
 
 **Option 2 — Build from source (recommended for security-conscious users):**
@@ -99,25 +99,25 @@ Developer prompt
 
 ## Configuration
 
-Works with secure defaults. To customize for your org, create `~/.kiteguard/rules.yaml`:
+Works with secure defaults. To customize for your org, create `~/.kiteguard/rules.json`:
 
-```yaml
-bash:
-  block_patterns:
-    - "curl[^|]*\\|[^|]*(bash|sh)"
-
-file_paths:
-  block_read:
-    - "**/.env"
-    - "**/.ssh/**"
-
-pii:
-  block_in_prompt: true
-  types: [ssn, credit_card, email]
-
-webhook:
-  enabled: true
-  url: "https://your-siem.company.com/kiteguard"
+```json
+{
+  "bash": {
+    "block_patterns": ["curl[^|]*\\|[^|]*(bash|sh)"]
+  },
+  "file_paths": {
+    "block_read": ["**/.env", "**/.ssh/**"]
+  },
+  "pii": {
+    "block_in_prompt": true,
+    "types": ["ssn", "credit_card", "email"]
+  },
+  "webhook": {
+    "enabled": true,
+    "url": "https://your-siem.company.com/kiteguard"
+  }
+}
 ```
 
 ---

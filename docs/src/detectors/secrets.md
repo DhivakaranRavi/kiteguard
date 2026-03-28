@@ -34,7 +34,7 @@ It does **not** run on user prompts (PII detector handles those).
 
 ## Configuration
 
-Secrets patterns are hardcoded and cannot be disabled via `rules.yaml`. This is intentional — secrets detection is a safety control, not a policy control.
+Secrets patterns are hardcoded and cannot be disabled via `rules.json`. This is intentional — secrets detection is a safety control, not a policy control.
 
 ## False positives
 

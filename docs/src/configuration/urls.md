@@ -30,7 +30,7 @@ urls:
 
 ## Hardcoded SSRF protections
 
-The following endpoints are **always blocked** regardless of `rules.yaml`:
+The following endpoints are **always blocked** regardless of `rules.json`:
 
 | Host                      | Why                                        |
 |---------------------------|--------------------------------------------|

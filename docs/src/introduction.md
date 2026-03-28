@@ -42,7 +42,7 @@ Prompt → [UserPromptSubmit] → Claude → [PreToolUse] → Tool → [PostTool
 ## Quick install
 
 ```bash
-curl -sSL https://raw.githubusercontent.com/DhivakaranRavi/kiteguard/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/DhivakaranRavi/kiteguard/main/scripts/install.sh | bash
 ```
 
 → [Get started](getting-started/installation.md)

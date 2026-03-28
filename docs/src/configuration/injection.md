@@ -35,7 +35,7 @@ Layer 3 is the most valuable: it stops a malicious README or web page from hijac
 
 ## Why patterns are hardcoded
 
-Injection patterns defend against adversarial inputs that are designed to evade filtering. Making them user-configurable means an attacker only needs to convince Claude to update the config to disable its own defenses. kiteguard ships a fixed detection set that cannot be disabled via `rules.yaml`.
+Injection patterns defend against adversarial inputs that are designed to evade filtering. Making them user-configurable means an attacker only needs to convince Claude to update the config to disable its own defenses. kiteguard ships a fixed detection set that cannot be disabled via `rules.json`.
 
 ## False positives
 

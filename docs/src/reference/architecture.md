@@ -22,7 +22,7 @@ src/
 │   ├── secrets.rs       — API keys, tokens, credentials
 │   └── urls.rs          — URL blocklist + SSRF
 ├── engine/
-│   ├── policy.rs        — loads rules.yaml, provides defaults
+│   ├── policy.rs        — loads rules.json, provides defaults
 │   ├── evaluator.rs     — routes inputs through detectors
 │   └── verdict.rs       — Allow / Block / Redact enum
 └── audit/
