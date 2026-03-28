@@ -52,66 +52,65 @@ kiteguard solves this by intercepting at **four critical points** in every Claud
 ## How it works
 
 ```mermaid
-graph LR
-    DEV[Developer]
-    CC[Claude Code]
+graph TD
+    DEV([Developer])
+    CC([Claude Code])
 
-    subgraph KG[KiteGuard]
+    DEV -->|prompt| CC
+    CC  -->|hook event| KG
+    KG  -->|block or allow| CC
+    CC  -->|response| DEV
+
+    subgraph KG[KiteGuard Runtime]
         direction TB
 
-        subgraph HL[Hook Layer]
-            H1[UserPromptSubmit\nBlock PII and\nprompt injection]
-            H2[PreToolUse\nBlock commands\npaths and URLs]
-            H3[PostToolUse\nScan tool\nresponse content]
-            H4[Stop\nRedact secrets\nand PII]
+        subgraph HOOKS[Hook Intercepts]
+            direction LR
+            H1[UserPromptSubmit]
+            H2[PreToolUse]
+            H3[PostToolUse]
+            H4[Stop]
         end
 
-        subgraph CE[Core Engine]
-            PE[Policy Engine\nHMAC-verified rules.json]
-            DET[Detectors\ncommands paths URLs\nPII secrets injection]
+        subgraph ENGINE[Enforcement Engine]
+            direction LR
+            PE[Policy Engine]
+            DET[Detector Suite]
         end
 
-        LOG[Audit Logger\nSHA-256 hash-chain]
+        subgraph PERSIST[Persistence]
+            direction LR
+            LOG[Audit Logger]
+            STORE[(Storage)]
+        end
+
+        HOOKS --> ENGINE
+        ENGINE -->|verdict| HOOKS
+        HOOKS --> LOG
+        PE -.->|verify HMAC sig| STORE
+        LOG -.->|hash-chain append| STORE
     end
 
-    subgraph FS[kiteguard storage]
-        RF[rules.json and .sig]
-        AK[.key HMAC-SHA256]
-        AL[audit.log]
-    end
+    LOG -->|POST event| WH([Webhook])
 
-    WH[Webhook optional]
+    style DEV  fill:#e0f2fe,stroke:#0ea5e9,color:#0c4a6e
+    style CC   fill:#e0f2fe,stroke:#0ea5e9,color:#0c4a6e
+    style WH   fill:#f3e8ff,stroke:#9333ea,color:#3b0764
 
-    DEV  --> CC
-    CC   -->|stdin JSON| HL
-    HL   --> PE
-    PE   --> DET
-    DET  -->|verdict| HL
-    HL   -->|block or allow| CC
-    CC   -->|safe response| DEV
-    HL   --> LOG
-    PE   -.->|verify sig| RF
-    PE   -.->|read key| AK
-    LOG  -.->|append| AL
-    LOG  -->|POST| WH
+    style KG    fill:#f8fafc,stroke:#334155,color:#0f172a
+    style HOOKS fill:#fef2f2,stroke:#dc2626,color:#7f1d1d
+    style H1    fill:#fef2f2,stroke:#dc2626,color:#7f1d1d
+    style H2    fill:#fef2f2,stroke:#dc2626,color:#7f1d1d
+    style H3    fill:#fef2f2,stroke:#dc2626,color:#7f1d1d
+    style H4    fill:#fef2f2,stroke:#dc2626,color:#7f1d1d
 
-    style DEV fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    style CC  fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    style KG  fill:#fff7ed,stroke:#f97316
-    style HL  fill:#fee2e2,stroke:#ef4444
-    style H1  fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
-    style H2  fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
-    style H3  fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
-    style H4  fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
-    style CE  fill:#f0fdf4,stroke:#22c55e
-    style PE  fill:#f0fdf4,stroke:#22c55e,color:#14532d
-    style DET fill:#f0fdf4,stroke:#22c55e,color:#14532d
-    style LOG fill:#f0fdf4,stroke:#22c55e,color:#14532d
-    style FS  fill:#fafaf9,stroke:#78716c
-    style RF  fill:#fafaf9,stroke:#78716c,color:#292524
-    style AK  fill:#fafaf9,stroke:#78716c,color:#292524
-    style AL  fill:#fafaf9,stroke:#78716c,color:#292524
-    style WH  fill:#fdf4ff,stroke:#a855f7,color:#581c87
+    style ENGINE fill:#f0fdf4,stroke:#16a34a,color:#14532d
+    style PE     fill:#f0fdf4,stroke:#16a34a,color:#14532d
+    style DET    fill:#f0fdf4,stroke:#16a34a,color:#14532d
+
+    style PERSIST fill:#f1f5f9,stroke:#475569,color:#1e293b
+    style LOG     fill:#f1f5f9,stroke:#475569,color:#1e293b
+    style STORE   fill:#f1f5f9,stroke:#475569,color:#1e293b
 ```
 
 ---
