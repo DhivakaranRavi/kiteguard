@@ -205,7 +205,10 @@ pub fn send(config: &WebhookConfig, hook_event: &str, verdict: &Verdict) -> Resu
     if let Some(ref tok) = resolved_token {
         if !tok.is_empty() {
             let safe_tok = sanitize_curl_value(tok);
-            curl_cfg.push_str(&format!("\nheader = \"Authorization: Bearer {}\"", safe_tok));
+            curl_cfg.push_str(&format!(
+                "\nheader = \"Authorization: Bearer {}\"",
+                safe_tok
+            ));
         }
     }
 
