@@ -2,8 +2,6 @@
   <img src="assets/kiteguard.png" alt="kiteguard logo" width="180" />
 </p>
 
-<h1 align="center">kiteguard</h1>
-
 <p align="center">
   <em>Runtime security guardrails for Claude Code and AI coding agents</em>
 </p>
