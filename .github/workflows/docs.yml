@@ -15,6 +15,9 @@ permissions:
   pages: write
   id-token: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 # Only one deployment at a time; cancel in-progress if a new push arrives
 concurrency:
   group: "pages"
