@@ -24,10 +24,13 @@ static PII_PATTERNS: &[(&str, &str, &str)] = &[
         r"\b(\+?1[\s.-]?)?\(?\d{3}\)?[\s.\-]\d{3}[\s.\-]\d{4}\b",
         "Phone number detected",
     ),
-    // Passport (generic)
+    // Passport: 1-2 uppercase letters + 7-9 digits.
+    // Minimum 7 digits (not 6) to reduce false-positives on short ID codes
+    // like serial numbers and version strings (e.g. "V1234567" → 7-digit match
+    // is still realistic; 6-digit was too loose).
     (
         "passport",
-        r"\b[A-Z]{1,2}[0-9]{6,9}\b",
+        r"\b[A-Z]{1,2}[0-9]{7,9}\b",
         "Passport number detected",
     ),
 ];

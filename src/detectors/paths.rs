@@ -1,4 +1,9 @@
 use crate::engine::verdict::Verdict;
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+
+// Glob-to-regex cache: avoids recompiling the same pattern on every call.
+static GLOB_CACHE: OnceLock<Mutex<HashMap<String, Option<regex::Regex>>>> = OnceLock::new();
 
 /// Checks a file READ path against blocked path patterns.
 pub fn scan_read(path: &str, block_patterns: &[String]) -> Option<Verdict> {
@@ -52,13 +57,19 @@ fn expand_home(path: &str) -> String {
 }
 
 /// Simple glob matcher supporting `*`, `**`, and `?`.
+/// Compiled regexes are cached per-process so the same pattern is never
+/// compiled more than once (e.g. when matching against both the user-supplied
+/// path and its canonicalized form).
 fn glob_match(pattern: &str, path: &str) -> bool {
-    // Use the glob crate pattern via simple matching
-    // Convert glob to regex for matching
-    let regex_str = glob_to_regex(pattern);
-    regex::Regex::new(&regex_str)
-        .map(|re| re.is_match(path))
-        .unwrap_or(false)
+    let cache = GLOB_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut map = cache.lock().unwrap_or_else(|e| e.into_inner());
+    map.entry(pattern.to_string())
+        .or_insert_with(|| {
+            let s = glob_to_regex(pattern);
+            regex::Regex::new(&s).ok()
+        })
+        .as_ref()
+        .is_some_and(|re| re.is_match(path))
 }
 
 fn glob_to_regex(pattern: &str) -> String {

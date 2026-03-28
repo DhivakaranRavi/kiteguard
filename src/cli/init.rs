@@ -29,7 +29,10 @@ pub fn run() -> Result<()> {
     settings["hooks"] = hooks;
 
     // Write back
-    fs::create_dir_all(settings_path.parent().unwrap())?;
+    let parent = settings_path
+        .parent()
+        .ok_or("~/.claude/settings.json has no parent directory")?;
+    fs::create_dir_all(parent)?;
     fs::write(&settings_path, serde_json::to_string_pretty(&settings)?)?;
 
     // Restrict settings file to owner-only read/write (chmod 600)

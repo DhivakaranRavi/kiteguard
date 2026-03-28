@@ -51,23 +51,65 @@ pub fn run() -> Result<()> {
 }
 
 /// kiteguard audit verify — walks the hash-chain and reports any tampering.
+/// Covers the live log AND all rotated archives (audit.log.1 – audit.log.3).
 pub fn verify() -> Result<()> {
-    let log_path = crate::util::home_dir().join(".kiteguard").join("audit.log");
+    let log_dir = crate::util::home_dir().join(".kiteguard");
+    let live_log = log_dir.join("audit.log");
 
-    if !log_path.exists() {
+    if !live_log.exists() {
         println!("No audit log found.");
         return Ok(());
     }
 
-    let content = fs::read_to_string(&log_path)?;
+    // Verify oldest archive first, then the live log.
+    let mut log_files: Vec<std::path::PathBuf> = (1_u8..=3_u8)
+        .rev()
+        .map(|i| log_dir.join(format!("audit.log.{}", i)))
+        .filter(|p| p.exists())
+        .collect();
+    log_files.push(live_log);
+
+    let mut total_errors = 0usize;
+    let mut total_entries = 0usize;
+
+    for log_path in &log_files {
+        let label = log_path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned();
+        let (entries, errors) = verify_file(log_path, &label)?;
+        total_entries += entries;
+        total_errors += errors;
+    }
+
+    if total_errors == 0 {
+        println!(
+            "\n✅ Chain verified — {} entries across {} file(s), no tampering detected.",
+            total_entries,
+            log_files.len()
+        );
+    } else {
+        eprintln!(
+            "\n❌ {} integrity error(s) detected across audit logs.",
+            total_errors
+        );
+        std::process::exit(1);
+    }
+
+    Ok(())
+}
+
+fn verify_file(log_path: &std::path::Path, label: &str) -> Result<(usize, usize)> {
+    let content = fs::read_to_string(log_path)?;
     let lines: Vec<&str> = content.lines().filter(|l| !l.trim().is_empty()).collect();
 
     if lines.is_empty() {
-        println!("Audit log is empty.");
-        return Ok(());
+        println!("[{}] empty — skipping", label);
+        return Ok((0, 0));
     }
 
-    println!("Verifying audit log chain ({} entries)...\n", lines.len());
+    println!("Verifying {} ({} entries)...", label, lines.len());
 
     let zeros = "0".repeat(64);
     let mut expected_prev = zeros;
@@ -124,15 +166,5 @@ pub fn verify() -> Result<()> {
         expected_prev = stored_hash;
     }
 
-    if errors == 0 {
-        println!(
-            "✅ Chain verified — {} entries, no tampering detected.",
-            lines.len()
-        );
-    } else {
-        eprintln!("\n❌ {} integrity error(s) detected in audit log.", errors);
-        std::process::exit(1);
-    }
-
-    Ok(())
+    Ok((lines.len(), errors))
 }
