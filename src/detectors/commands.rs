@@ -1,15 +1,20 @@
 use crate::engine::verdict::Verdict;
 use regex::Regex;
+use std::sync::OnceLock;
 
 /// Maximum command length to protect against ReDoS on user-supplied patterns.
 /// Inputs longer than this are truncated before matching.
 const MAX_MATCH_LEN: usize = 4096;
 
+static REDOS_CHECK: OnceLock<Regex> = OnceLock::new();
+
 /// Returns true if the pattern contains constructs prone to catastrophic
 /// backtracking: nested quantifiers like `(x+)+`, `(x*)*`, `(x|x)*`.
 fn is_redos_risky(pattern: &str) -> bool {
-    // Quick structural check — reject patterns with adjacent/nested quantifiers
-    let risky = regex::Regex::new(r"[+*?}][)\]]\s*[+*?{]|\([^)]*[+*?]\s*\)[+*?]").unwrap();
+    // Compiled once — previously this called Regex::new on every invocation.
+    let risky = REDOS_CHECK.get_or_init(|| {
+        Regex::new(r"[+*?}][)\]]\s*[+*?{]|\([^)]*[+*?]\s*\)[+*?]").unwrap()
+    });
     risky.is_match(pattern)
 }
 

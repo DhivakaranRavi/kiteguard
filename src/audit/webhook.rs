@@ -174,11 +174,14 @@ pub fn send(config: &WebhookConfig, hook_event: &str, verdict: &Verdict) -> Resu
         return Ok(());
     }
 
-    let body = format!(
-        r#"{{"source":"kiteguard","hook":"{}","verdict":"{}"}}"#,
-        hook_event,
-        verdict.as_str()
-    );
+    // Use serde_json to build the body — avoids JSON injection if hook_event
+    // or verdict contain control characters or double-quotes.
+    let body = serde_json::json!({
+        "source": "kiteguard",
+        "hook":   hook_event,
+        "verdict": verdict.as_str()
+    })
+    .to_string();
 
     // Build a curl config block piped via stdin — token never hits the
     // process list. If token starts with '$', resolve from env var.

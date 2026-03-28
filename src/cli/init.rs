@@ -95,8 +95,15 @@ pub fn sign_policy(config_dir: &std::path::Path) -> Result<()> {
     };
 
     let sig = crate::crypto::hmac_sign(&key, rules_content.as_bytes());
-    fs::write(config_dir.join("policy.sig"), &sig)
+    let sig_path = config_dir.join("policy.sig");
+    fs::write(&sig_path, &sig)
         .map_err(|e| format!("Failed to write policy.sig: {}", e))?;
+    // policy.sig is HMAC output — keep it owner-only (matching .key)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&sig_path, std::fs::Permissions::from_mode(0o600));
+    }
 
     Ok(())
 }
