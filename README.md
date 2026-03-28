@@ -53,65 +53,65 @@ kiteguard solves this by intercepting at **four critical points** in every Claud
 
 ```mermaid
 graph LR
-    DEV["Developer"]
-    CC["Claude Code"]
+    DEV[Developer]
+    CC[Claude Code]
 
-    subgraph KG["KiteGuard"]
+    subgraph KG[KiteGuard]
         direction TB
 
-        subgraph HL["Hook Layer"]
-            H1["UserPromptSubmit\n────────────\nBlock PII &\nprompt injection"]
-            H2["PreToolUse\n────────────\nBlock commands,\npaths & URLs"]
-            H3["PostToolUse\n────────────\nScan tool\nresponse content"]
-            H4["Stop\n────────────\nRedact secrets\n& PII"]
+        subgraph HL[Hook Layer]
+            H1[UserPromptSubmit\nBlock PII and\nprompt injection]
+            H2[PreToolUse\nBlock commands\npaths and URLs]
+            H3[PostToolUse\nScan tool\nresponse content]
+            H4[Stop\nRedact secrets\nand PII]
         end
 
-        subgraph CE["Core Engine"]
-            PE["Policy Engine\nHMAC-verified rules.json"]
-            DET["Detectors\ncommands · paths · URLs\nPII · secrets · injection"]
+        subgraph CE[Core Engine]
+            PE[Policy Engine\nHMAC-verified rules.json]
+            DET[Detectors\ncommands paths URLs\nPII secrets injection]
         end
 
-        LOG["Audit Logger\nSHA-256 hash-chain"]
+        LOG[Audit Logger\nSHA-256 hash-chain]
     end
 
-    subgraph FS["~/.kiteguard/"]
-        RF["rules.json + .sig"]
-        AK[".key  (HMAC-SHA256)"]
-        AL["audit.log"]
+    subgraph FS[kiteguard storage]
+        RF[rules.json and .sig]
+        AK[.key HMAC-SHA256]
+        AL[audit.log]
     end
 
-    WH["Webhook\n(optional)"]
+    WH[Webhook optional]
 
-    DEV        -->|"prompt / tools"|   CC
-    CC         -->|"stdin JSON"|       HL
-    HL         -->                     PE
-    PE         -->                     DET
-    DET        -->|"verdict"|          HL
-    HL         -->|"block·2 / allow·0"| CC
-    CC         -->|"safe response"|    DEV
-    HL         -->                     LOG
-    PE         -.->|"verify sig"|      RF
-    PE         -.->|"read key"|        AK
-    LOG        -.->|"append"|          AL
-    LOG        -->|"POST"|             WH
+    DEV  --> CC
+    CC   -->|stdin JSON| HL
+    HL   --> PE
+    PE   --> DET
+    DET  -->|verdict| HL
+    HL   -->|block or allow| CC
+    CC   -->|safe response| DEV
+    HL   --> LOG
+    PE   -.->|verify sig| RF
+    PE   -.->|read key| AK
+    LOG  -.->|append| AL
+    LOG  -->|POST| WH
 
-    style DEV  fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    style CC   fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    style KG   fill:#fff7ed,stroke:#f97316
-    style HL   fill:#fee2e2,stroke:#ef4444
-    style H1   fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
-    style H2   fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
-    style H3   fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
-    style H4   fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
-    style CE   fill:#f0fdf4,stroke:#22c55e
-    style PE   fill:#f0fdf4,stroke:#22c55e,color:#14532d
-    style DET  fill:#f0fdf4,stroke:#22c55e,color:#14532d
-    style LOG  fill:#f0fdf4,stroke:#22c55e,color:#14532d
-    style FS   fill:#fafaf9,stroke:#78716c
-    style RF   fill:#fafaf9,stroke:#78716c,color:#292524
-    style AK   fill:#fafaf9,stroke:#78716c,color:#292524
-    style AL   fill:#fafaf9,stroke:#78716c,color:#292524
-    style WH   fill:#fdf4ff,stroke:#a855f7,color:#581c87
+    style DEV fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
+    style CC  fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
+    style KG  fill:#fff7ed,stroke:#f97316
+    style HL  fill:#fee2e2,stroke:#ef4444
+    style H1  fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
+    style H2  fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
+    style H3  fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
+    style H4  fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
+    style CE  fill:#f0fdf4,stroke:#22c55e
+    style PE  fill:#f0fdf4,stroke:#22c55e,color:#14532d
+    style DET fill:#f0fdf4,stroke:#22c55e,color:#14532d
+    style LOG fill:#f0fdf4,stroke:#22c55e,color:#14532d
+    style FS  fill:#fafaf9,stroke:#78716c
+    style RF  fill:#fafaf9,stroke:#78716c,color:#292524
+    style AK  fill:#fafaf9,stroke:#78716c,color:#292524
+    style AL  fill:#fafaf9,stroke:#78716c,color:#292524
+    style WH  fill:#fdf4ff,stroke:#a855f7,color:#581c87
 ```
 
 ---
