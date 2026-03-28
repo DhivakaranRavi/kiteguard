@@ -10,7 +10,13 @@ pub fn run() -> Result<()> {
 
     match args.get(1).map(|s| s.as_str()) {
         Some("init") => init::run(),
-        Some("audit") => audit::run(),
+        Some("audit") => {
+            if args.get(2).map(|s| s.as_str()) == Some("verify") {
+                audit::verify()
+            } else {
+                audit::run()
+            }
+        }
         Some("policy") => policy::run(&args[2..]),
         Some("--version") | Some("-V") => {
             println!("kiteguard {}", env!("CARGO_PKG_VERSION"));
@@ -37,10 +43,12 @@ USAGE:
     kiteguard <COMMAND>
 
 COMMANDS:
-    init        Register kiteguard hooks with Claude Code
-    audit       View the local audit log
-    policy      Manage security policies
-    --version   Print version
+    init              Register kiteguard hooks with Claude Code
+    audit             View the local audit log
+    audit verify      Verify audit log chain integrity (detect tampering)
+    policy            View active security policies
+    policy sign       Re-sign rules.json after manual edits
+    --version         Print version
 
 HOOKS (invoked automatically by Claude Code):
     Set CLAUDE_HOOK_EVENT=UserPromptSubmit|PreToolUse|PostToolUse|Stop

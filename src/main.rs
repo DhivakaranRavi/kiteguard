@@ -1,5 +1,6 @@
 mod audit;
 mod cli;
+mod crypto;
 mod detectors;
 mod engine;
 mod error;
@@ -23,8 +24,16 @@ fn main() -> Result<()> {
     let mut input = String::new();
     io::stdin().take(MAX_PAYLOAD).read_to_string(&mut input)?;
 
-    // Load policy config
-    let policy = engine::policy::load()?;
+    // Load policy config.
+    // Fail-closed on tamper: if signature is present but doesn't match,
+    // block the Claude action (exit 2) rather than proceeding with untrusted policy.
+    let policy = match engine::policy::load() {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("\n[kiteguard] POLICY ERROR: {}\n", e);
+            std::process::exit(2);
+        }
+    };
 
     // Dispatch to the correct hook handler
     let verdict = match hook_event.as_str() {

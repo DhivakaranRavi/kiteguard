@@ -130,22 +130,30 @@ fn default_blocked_domains() -> Vec<String> {
 pub fn load() -> Result<Policy> {
     let config_path = config_path();
 
-    // Atomically: open-and-read in one call (no TOCTOU exists() + read_to_string race).
-    let policy = match std::fs::read_to_string(&config_path) {
-        Ok(content) => serde_json::from_str::<Policy>(&content)
-            .map_err(|e| format!("Failed to parse rules.json: {}", e))?,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            // No config file — use secure defaults
-            Policy::default()
-        }
+    // Atomically read file content.  Empty string = no custom config → use defaults.
+    let raw_content = match std::fs::read_to_string(&config_path) {
+        Ok(s) => s,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(e) => {
             return Err(format!("Failed to read config {}: {}", config_path.display(), e).into())
         }
     };
 
+    // Verify HMAC signature if key and signature file exist.
+    // If sig is present but invalid → fail-closed (return Err).
+    verify_policy_signature(&raw_content)?;
+
+    // Parse from content, or fall back to secure built-in defaults.
+    let policy = if raw_content.is_empty() {
+        Policy::default()
+    } else {
+        serde_json::from_str::<Policy>(&raw_content)
+            .map_err(|e| format!("Failed to parse rules.json: {}", e))?
+    };
+
     // Validate user-supplied bash patterns are compilable regexes.
-    // Warn on stderr and skip invalid ones rather than refusing to start,
-    // so a single bad pattern doesn't disable all other protections.
+    // Warn and skip invalid ones rather than refusing to start — a single
+    // bad pattern shouldn't disable all other protections.
     for pattern in &policy.bash.block_patterns {
         if regex::Regex::new(pattern).is_err() {
             eprintln!(
@@ -156,6 +164,37 @@ pub fn load() -> Result<Policy> {
     }
 
     Ok(policy)
+}
+
+/// Verifies the HMAC-SHA256 signature over `raw_content`.
+/// Skipped silently when no key/sig files exist (pre-init).
+/// Returns Err (and blocks fail-closed) if the signature doesn't match.
+fn verify_policy_signature(raw_content: &str) -> Result<()> {
+    let config_dir = crate::util::home_dir().join(".kiteguard");
+    let key_path = config_dir.join(".key");
+    let sig_path = config_dir.join("policy.sig");
+
+    if !key_path.exists() || !sig_path.exists() {
+        return Ok(()); // Not yet signed — first run or pre-init
+    }
+
+    let key_hex = std::fs::read_to_string(&key_path)
+        .map_err(|e| format!("Failed to read policy key: {}", e))?;
+    let expected_sig = std::fs::read_to_string(&sig_path)
+        .map_err(|e| format!("Failed to read policy.sig: {}", e))?;
+    let key = crate::crypto::hex_to_bytes(key_hex.trim())
+        .ok_or("Policy key file is corrupted (invalid hex)")?;
+
+    if !crate::crypto::hmac_verify(&key, raw_content.as_bytes(), expected_sig.trim()) {
+        return Err(concat!(
+            "POLICY INTEGRITY CHECK FAILED — rules.json may have been tampered with.\n",
+            "  Run 'kiteguard policy sign' to re-sign after intentional changes.\n",
+            "  All actions are blocked until the signature is restored (fail-closed)."
+        )
+        .into());
+    }
+
+    Ok(())
 }
 
 pub fn config_path() -> PathBuf {

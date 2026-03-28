@@ -9,12 +9,37 @@ pub fn run(args: &[String]) -> Result<()> {
             println!("{}", policy::config_path().display());
             Ok(())
         }
+        Some("sign") => sign(),
         Some(cmd) => {
             eprintln!("Unknown policy command: {}", cmd);
-            eprintln!("Usage: kiteguard policy [list|path]");
+            eprintln!("Usage: kiteguard policy [list|path|sign]");
             Ok(())
         }
     }
+}
+
+fn sign() -> Result<()> {
+    let config_dir = crate::util::home_dir().join(".kiteguard");
+    let key_path = config_dir.join(".key");
+
+    if !key_path.exists() {
+        eprintln!("No signing key found. Run 'kiteguard init' first to generate the key.");
+        std::process::exit(1);
+    }
+
+    crate::cli::init::sign_policy(&config_dir)?;
+
+    let rules_path = config_dir.join("rules.json");
+    let sig_path = config_dir.join("policy.sig");
+    println!("Policy signed.");
+    if rules_path.exists() {
+        println!("  Policy:    {}", rules_path.display());
+    } else {
+        println!("  Policy:    built-in defaults (no rules.json)");
+    }
+    println!("  Signature: {}", sig_path.display());
+    println!("\nRun this after any manual changes to rules.json.");
+    Ok(())
 }
 
 fn list() -> Result<()> {
@@ -25,7 +50,7 @@ fn list() -> Result<()> {
         println!("Policy loaded from: {}\n", config_path.display());
     } else {
         println!(
-            "Using built-in defaults (no rules.yaml found at {})\n",
+            "Using built-in defaults (no rules.json found at {})\n",
             config_path.display()
         );
     }
