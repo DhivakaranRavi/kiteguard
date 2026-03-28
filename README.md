@@ -51,32 +51,43 @@ kiteguard solves this by intercepting at **four critical points** in every Claud
 
 ## How it works
 
-```
-Developer prompt
-      │
-      ▼
-[UserPromptSubmit] ← Block PII, prompt injection
-      │
-      ▼
-  Claude thinks
-      │
-      ▼
-[PreToolUse]       ← Block dangerous commands, sensitive file access, bad URLs
-      │
-      ▼
-  Tool executes
-      │
-      ▼
-[PostToolUse]      ← Scan file/web content loaded into Claude's context
-      │
-      ▼
-  Response generated
-      │
-      ▼
-[Stop]             ← Redact secrets and PII from response
-      │
-      ▼
-  Developer sees safe response
+```mermaid
+flowchart TD
+    A["👤 Developer prompt"]
+    A --> B
+
+    B{{"⚡ UserPromptSubmit\nBlock PII & prompt injection"}}
+    B --> C
+
+    C["🤖 Claude thinks"]
+    C --> D
+
+    D{{"⚡ PreToolUse\nBlock dangerous commands,\nsensitive file reads & writes, bad URLs"}}
+    D --> E
+
+    E["⚙️ Tool executes"]
+    E --> F
+
+    F{{"⚡ PostToolUse\nScan file/web content\nloaded into Claude's context"}}
+    F --> G
+
+    G["📝 Response generated"]
+    G --> H
+
+    H{{"⚡ Stop\nRedact secrets & PII from response"}}
+    H --> I
+
+    I["✅ Developer sees safe response"]
+
+    style A fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
+    style B fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
+    style C fill:#f0fdf4,stroke:#22c55e,color:#14532d
+    style D fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
+    style E fill:#f0fdf4,stroke:#22c55e,color:#14532d
+    style F fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
+    style G fill:#f0fdf4,stroke:#22c55e,color:#14532d
+    style H fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
+    style I fill:#dcfce7,stroke:#16a34a,color:#14532d
 ```
 
 ---
@@ -124,12 +135,17 @@ Works with secure defaults. To customize for your org, create `~/.kiteguard/rule
 
 ## CLI
 
-```bash
-kiteguard init      # register hooks with Claude Code
-kiteguard audit     # view blocked/allowed events
-kiteguard policy    # view active policies
-kiteguard --version
-```
+| Command | Description |
+|---|---|
+| `kiteguard init` | Register kiteguard hooks with Claude Code |
+| `kiteguard audit` | View the local audit log (all events) |
+| `kiteguard audit verify` | Verify audit log hash-chain integrity — detects tampering |
+| `kiteguard policy` | View active security policies (alias for `policy list`) |
+| `kiteguard policy list` | Print all active policy settings |
+| `kiteguard policy path` | Print the path to the active `rules.json` file |
+| `kiteguard policy sign` | Re-sign `rules.json` after manual edits |
+| `kiteguard --version` | Print version |
+| `kiteguard --help` | Show help |
 
 ---
 
