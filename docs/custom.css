@@ -1,0 +1,58 @@
+/* kiteguard docs — custom theme overrides */
+
+:root {
+    --sidebar-width: 260px;
+    --content-max-width: 860px;
+}
+
+/* Brand colours */
+:root {
+    --kiteguard-orange: #e8720c;
+    --kiteguard-dark: #1a1a2e;
+}
+
+/* Heading accents */
+.content h1 {
+    border-bottom: 2px solid var(--kiteguard-orange);
+    padding-bottom: 0.25em;
+}
+
+/* Sidebar active item */
+.sidebar .active > a {
+    color: var(--kiteguard-orange) !important;
+    font-weight: 600;
+}
+
+/* Custom callout boxes using blockquote */
+blockquote {
+    border-left: 4px solid var(--kiteguard-orange);
+    background: rgba(232, 114, 12, 0.06);
+    padding: 0.75em 1em;
+    margin: 1em 0;
+    border-radius: 0 4px 4px 0;
+}
+
+/* Warning callout (uses > **Warning:**) */
+blockquote strong:first-child {
+    color: var(--kiteguard-orange);
+}
+
+/* Code blocks */
+pre {
+    border-radius: 6px;
+    border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+/* Table striping */
+table tbody tr:nth-child(odd) {
+    background: rgba(128, 128, 128, 0.05);
+}
+
+/* Footer */
+.content footer {
+    margin-top: 3em;
+    padding-top: 1em;
+    border-top: 1px solid rgba(128, 128, 128, 0.2);
+    font-size: 0.85em;
+    color: #888;
+}

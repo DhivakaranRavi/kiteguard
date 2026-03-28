@@ -1,0 +1,91 @@
+# kiteguard rules.yaml — Security Policy Configuration
+# Place this file at: ~/.kiteguard/rules.yaml
+# If not present, built-in secure defaults are used.
+
+version: 1
+
+# ── Bash Command Protection ───────────────────────────────────────────────────
+bash:
+  enabled: true
+  block_on_error: true   # fail-closed: block if kiteguard crashes
+
+  block_patterns:
+    # Pipe-to-shell attacks (the most common attack vector)
+    - "curl[^|]*\\|[^|]*(bash|sh)"
+    - "wget[^|]*\\|[^|]*(bash|sh)"
+    # Destructive filesystem operations
+    - "rm\\s+-rf\\s+/"
+    - "rm\\s+-rf\\s+~"
+    # Encoded command execution
+    - "eval\\s*\\(.*base64"
+    - "echo\\s+.*\\|\\s*base64\\s+-d\\s*\\|\\s*(bash|sh)"
+    # Reverse shells
+    - "/dev/tcp/"
+    - "nc\\s+-e\\s+/bin"
+    - "bash\\s+-i\\s+>&"
+    # Privilege escalation
+    - "chmod\\s+777"
+    - "sudo\\s+su\\s*$"
+    # Cron/persistence
+    - "crontab\\s+-"
+    - ">\\s*/etc/cron"
+
+# ── File Path Protection ──────────────────────────────────────────────────────
+file_paths:
+  block_read:
+    - "**/.ssh/**"
+    - "**/.aws/credentials"
+    - "**/.aws/config"
+    - "**/.gnupg/**"
+    - "**/.env"
+    - "**/.env.local"
+    - "**/.env.production"
+    - "**/secrets/**"
+    - "**/id_rsa"
+    - "**/id_ed25519"
+    - "**/id_ecdsa"
+    - "**/*.pem"
+    - "**/*.key"
+    - "**/*.p12"
+    - "**/*.pfx"
+
+  block_write:
+    - "**/.claude/settings.json"   # self-protection: prevent hook removal
+    - "/etc/**"
+    - "**/.ssh/**"
+    - "**/.aws/credentials"
+    - "**/cron*"
+    - "/usr/local/bin/**"          # prevent binary replacement
+
+# ── PII Detection ─────────────────────────────────────────────────────────────
+pii:
+  block_in_prompt: true          # stop PII reaching Claude API
+  block_in_file_content: true    # stop PII in files Claude reads
+  redact_in_response: true       # redact PII in Claude's responses
+
+  # Uncomment types you want enforced:
+  types:
+    - ssn
+    - credit_card
+    - email
+    - phone
+    # - passport
+
+# ── URL / SSRF Protection ─────────────────────────────────────────────────────
+urls:
+  blocklist:
+    - "169.254.169.254"            # AWS/GCP/Azure cloud metadata (SSRF)
+    - "metadata.google.internal"
+    - "metadata.azure.com"
+    # Add your org's internal domains here to prevent exfiltration:
+    # - "internal.yourcompany.com"
+
+# ── Prompt Injection Detection ────────────────────────────────────────────────
+injection:
+  enabled: true
+
+# ── Webhook (optional — for central dashboards) ───────────────────────────────
+webhook:
+  enabled: false
+  url: ""
+  token: ""               # sent as: Authorization: Bearer <token>
