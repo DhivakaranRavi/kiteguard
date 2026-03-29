@@ -37,6 +37,18 @@ TIMESTAMP                      HOOK                      VERDICT    RULE
 kiteguard policy list
 ```
 
+## Launch the console
+
+```bash
+kiteguard serve
+```
+
+Open **http://localhost:7070** to see a real-time view of all audit events, block reasons, and per-rule charts.
+
+→ [Console reference](../reference/console.md)
+
+---
+
 ## Customize for your org
 
 Create `~/.kiteguard/rules.json` to add org-specific rules:

@@ -107,6 +107,39 @@ pub fn sign_policy(config_dir: &std::path::Path) -> Result<()> {
         let _ = std::fs::set_permissions(&sig_path, std::fs::Permissions::from_mode(0o600));
     }
 
+    // Write sentinel so verify_policy_signature() can detect if key files are
+    // later deleted to bypass signature enforcement.
+    let sentinel_path = config_dir.join(".signature_required");
+    if !sentinel_path.exists() {
+        fs::write(&sentinel_path, "1")
+            .map_err(|e| format!("Failed to write .signature_required sentinel: {}", e))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(
+                &sentinel_path,
+                std::fs::Permissions::from_mode(0o600),
+            );
+        }
+    }
+
+    // Write a key fingerprint (SHA-256 of the raw key bytes) as a second
+    // independent sentinel.  Unlike .signature_required it contains no key
+    // material so there is no legitimate reason to delete it.  Both sentinels
+    // must be absent before we treat the install as "not yet signed".
+    let fingerprint = crate::crypto::sha256_hex(&key);
+    let fingerprint_path = config_dir.join(".key_fingerprint");
+    fs::write(&fingerprint_path, &fingerprint)
+        .map_err(|e| format!("Failed to write .key_fingerprint: {}", e))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(
+            &fingerprint_path,
+            std::fs::Permissions::from_mode(0o600),
+        );
+    }
+
     Ok(())
 }
 

@@ -12,6 +12,8 @@ git-repository-icon = "fa-github"
 edit-url-template = "https://github.com/DhivakaranRavi/kiteguard/edit/main/docs/src/{path}"
 additional-css    = ["custom.css"]
 no-section-label  = false
+default-theme     = "coal"
+preferred-dark-theme = "coal"
 
 [output.html.fold]
 enable   = true

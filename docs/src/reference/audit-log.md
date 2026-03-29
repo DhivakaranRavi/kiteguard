@@ -11,7 +11,11 @@ kiteguard appends one JSONL line per hook invocation to `~/.kiteguard/audit.log`
   "verdict":    "block",
   "rule":       "dangerous_command",
   "reason":     "matched /rm\\s+-rf/ in 'rm -rf /'",
-  "input_hash": "a3f1c2…"
+  "user":       "alice",
+  "host":       "macbook-pro",
+  "repo":       "acme/frontend",
+  "input_hash": "a3f1c2…",
+  "prev_hash":  "9b2e7f…"
 }
 ```
 
@@ -22,7 +26,11 @@ kiteguard appends one JSONL line per hook invocation to `~/.kiteguard/audit.log`
 | `verdict`    | string | `allow` or `block`                                 |
 | `rule`       | string | Matched rule name, or empty string on allow        |
 | `reason`     | string | Human-readable explanation, empty on allow         |
+| `user`       | string | OS username running Claude Code                    |
+| `host`       | string | Hostname of the machine                            |
+| `repo`       | string | Git repo path (e.g. `acme/frontend`)               |
 | `input_hash` | string | SHA-256 hex of the input (prompt text or command)  |
+| `prev_hash`  | string | SHA-256 of the previous log entry (hash-chain)     |
 
 Prompt text is **never stored** in the log — only its hash. This ensures audit trails without leaking sensitive content.
 

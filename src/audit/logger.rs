@@ -23,10 +23,18 @@ pub fn log(hook_event: &str, raw_input: &str, verdict: &Verdict) -> Result<()> {
 
     // Ensure directory is owner-only even when created by the logger
     // (e.g. when a hook fires before `kiteguard init` runs).
+    // Warn prominently on failure — a silent ignore could leave the audit log
+    // world-readable (e.g. on a shared filesystem with a permissive umask).
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&log_dir, std::fs::Permissions::from_mode(0o700));
+        if let Err(e) = std::fs::set_permissions(&log_dir, std::fs::Permissions::from_mode(0o700)) {
+            eprintln!(
+                "kiteguard: WARNING — could not restrict audit log directory permissions ({}): {}. \
+Audit log may be readable by other local users.",
+                log_dir.display(), e
+            );
+        }
     }
 
     let log_path = log_dir.join("audit.log");
@@ -34,22 +42,29 @@ pub fn log(hook_event: &str, raw_input: &str, verdict: &Verdict) -> Result<()> {
     maybe_rotate(&log_path)?;
 
     let prev_hash = read_last_hash(&log_path);
+    let seq = read_last_seq(&log_path) + 1;
 
     let rule = match verdict {
         Verdict::Block { rule, .. } => rule.as_str(),
+        _ => "",
+    };
+    let reason = match verdict {
+        Verdict::Block { reason, .. } => reason.as_str(),
         _ => "",
     };
 
     // Build the entry body — the string we will hash (no "hash" field yet).
     // json_str() ensures all values are properly JSON-escaped.
     let entry_body = format!(
-        "{{\"ts\":{ts},\"hook\":{hook},\"verdict\":{verdict},\"rule\":{rule},\
-\"user\":{user},\"host\":{host},\"repo\":{repo},\
+        "{{\"ts\":{ts},\"seq\":{seq},\"hook\":{hook},\"verdict\":{verdict},\"rule\":{rule},\
+\"reason\":{reason},\"user\":{user},\"host\":{host},\"repo\":{repo},\
 \"input_hash\":\"{input_hash}\",\"prev_hash\":\"{prev_hash}\"}}",
         ts = json_str(&crate::util::timestamp()),
+        seq = seq,
         hook = json_str(hook_event),
         verdict = json_str(verdict.as_str()),
         rule = json_str(rule),
+        reason = json_str(reason),
         user = json_str(&identity::user()),
         host = json_str(&identity::host()),
         repo = json_str(&identity::repo()),
@@ -75,7 +90,13 @@ pub fn log(hook_event: &str, raw_input: &str, verdict: &Verdict) -> Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&log_path, std::fs::Permissions::from_mode(0o600));
+        if let Err(e) = std::fs::set_permissions(&log_path, std::fs::Permissions::from_mode(0o600)) {
+            eprintln!(
+                "kiteguard: WARNING — could not restrict audit log file permissions ({}): {}. \
+Audit log may be readable by other local users.",
+                log_path.display(), e
+            );
+        }
     }
 
     writeln!(file, "{}", entry)?;
@@ -103,7 +124,32 @@ fn read_last_hash(log_path: &std::path::Path) -> String {
             return h.to_string();
         }
     }
+    // The last entry is malformed or missing the hash field — chain reset.
+    // Warn loudly so the operator knows to investigate.
+    eprintln!(
+        "kiteguard: WARNING — last audit log entry is malformed or missing 'hash' field; \
+hash chain reset to genesis. Run 'kiteguard audit verify' to check log integrity."
+    );
     zeros
+}
+
+/// Reads the `seq` field from the last line of the log.
+/// Returns 0 if the file is empty, missing, or has no seq field (legacy entries).
+fn read_last_seq(log_path: &std::path::Path) -> u64 {
+    let content = match fs::read_to_string(log_path) {
+        Ok(s) => s,
+        Err(_) => return 0,
+    };
+    let last_line = match content.trim_end().lines().last() {
+        Some(l) => l,
+        None => return 0,
+    };
+    if let Ok(entry) = serde_json::from_str::<serde_json::Value>(last_line) {
+        if let Some(n) = entry["seq"].as_u64() {
+            return n;
+        }
+    }
+    0
 }
 
 /// Rotates the log when it exceeds MAX_LOG_SIZE.
@@ -175,3 +221,9 @@ mod identity {
             .unwrap_or_default()
     }
 }
+
+// Public re-exports so other modules (e.g. webhook.rs) can reuse the same
+// identity resolution without duplicating logic.
+pub fn identity_user() -> String { identity::user() }
+pub fn identity_host() -> String { identity::host() }
+pub fn identity_repo() -> String { identity::repo() }

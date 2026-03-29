@@ -41,4 +41,5 @@
 - [Architecture](reference/architecture.md)
 - [CLI Reference](reference/cli.md)
 - [Audit Log](reference/audit-log.md)
+- [Console](reference/console.md)
 - [Contributing](reference/contributing.md)

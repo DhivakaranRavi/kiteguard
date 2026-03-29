@@ -113,6 +113,8 @@ fn verify_file(log_path: &std::path::Path, label: &str) -> Result<(usize, usize)
 
     let zeros = "0".repeat(64);
     let mut expected_prev = zeros;
+    let mut expected_seq: Option<u64> = None; // None until first seq-bearing entry
+    let mut last_ts = String::new();
     let mut errors = 0usize;
 
     for (i, line) in lines.iter().enumerate() {
@@ -161,6 +163,34 @@ fn verify_file(log_path: &std::path::Path, label: &str) -> Result<(usize, usize)
                 i + 1
             );
             errors += 1;
+        }
+
+        // 4. Verify sequence number is strictly incrementing (if present)
+        if let Some(seq) = entry["seq"].as_u64() {
+            match expected_seq {
+                Some(exp) if seq != exp => {
+                    eprintln!(
+                        "  [FAIL] entry {:>5}: sequence gap or reuse (expected seq {}, got {}) — possible replay or reorder attack",
+                        i + 1, exp, seq
+                    );
+                    errors += 1;
+                }
+                _ => {}
+            }
+            expected_seq = Some(seq + 1);
+        }
+
+        // 5. Verify timestamps are non-decreasing (if present)
+        let ts = entry["ts"].as_str().unwrap_or("");
+        if !ts.is_empty() && !last_ts.is_empty() && ts < last_ts.as_str() {
+            eprintln!(
+                "  [FAIL] entry {:>5}: timestamp went backwards ({} < {}) — possible replay attack",
+                i + 1, ts, last_ts
+            );
+            errors += 1;
+        }
+        if !ts.is_empty() {
+            last_ts = ts.to_string();
         }
 
         expected_prev = stored_hash;

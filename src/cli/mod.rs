@@ -1,6 +1,7 @@
 pub mod audit;
 pub mod init;
 pub mod policy;
+pub mod serve;
 
 use crate::error::Result;
 
@@ -10,6 +11,10 @@ pub fn run() -> Result<()> {
 
     match args.get(1).map(|s| s.as_str()) {
         Some("init") => init::run(),
+        Some("serve") => {
+            let port: u16 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(7070);
+            serve::run(port)
+        }
         Some("audit") => {
             if args.get(2).map(|s| s.as_str()) == Some("verify") {
                 audit::verify()
@@ -48,6 +53,7 @@ COMMANDS:
     audit verify      Verify audit log chain integrity (detect tampering)
     policy            View active security policies
     policy sign       Re-sign rules.json after manual edits
+    serve [PORT]      Start the local dashboard (default port: 7070)
     --version         Print version
 
 HOOKS (invoked automatically by Claude Code):

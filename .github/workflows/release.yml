@@ -31,6 +31,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Node (console build)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build console
+        run: |
+          cd console
+          npm ci --ignore-scripts
+          npm audit --audit-level=moderate
+          npm run build
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -47,15 +59,22 @@ jobs:
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
-      - name: Rename binary
+      - name: Package tarball
         run: |
-          cp target/${{ matrix.target }}/release/kiteguard ${{ matrix.artifact }}
+          mkdir -p dist
+          cp target/${{ matrix.target }}/release/kiteguard dist/
+          cd dist
+          tar czf ../${{ matrix.artifact }}.tar.gz kiteguard
+          cd ..
+          sha256sum ${{ matrix.artifact }}.tar.gz | awk '{print $1}' > ${{ matrix.artifact }}.tar.gz.sha256
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}.tar.gz
+            ${{ matrix.artifact }}.tar.gz.sha256
 
   release:
     name: Publish Release
@@ -79,6 +98,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/**/kiteguard-*
+            artifacts/**/*.tar.gz
+            artifacts/**/*.sha256
             artifacts/checksums.sha256
           generate_release_notes: true

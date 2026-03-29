@@ -130,12 +130,31 @@ fn default_blocked_domains() -> Vec<String> {
 pub fn load() -> Result<Policy> {
     let config_path = config_path();
 
+    // Resolve symlinks before reading to prevent a crafted symlink from
+    // redirecting policy reads to arbitrary filesystem paths.
+    let resolved = config_path
+        .canonicalize()
+        .unwrap_or_else(|_| config_path.clone());
+    // config_dir() is expected to be something like ~/.config/kiteguard.
+    // If the resolved path escapes that directory, refuse to load.
+    if let Some(expected_dir) = config_path.parent() {
+        if let Ok(canon_dir) = expected_dir.canonicalize() {
+            if !resolved.starts_with(&canon_dir) {
+                return Err(format!(
+                    "rules.json resolves outside config directory ({}): refusing to load",
+                    resolved.display()
+                )
+                .into());
+            }
+        }
+    }
+
     // Atomically read file content.  Empty string = no custom config → use defaults.
-    let raw_content = match std::fs::read_to_string(&config_path) {
+    let raw_content = match std::fs::read_to_string(&resolved) {
         Ok(s) => s,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => String::new(),
         Err(e) => {
-            return Err(format!("Failed to read config {}: {}", config_path.display(), e).into())
+            return Err(format!("Failed to read config {}: {}", resolved.display(), e).into())
         }
     };
 
@@ -152,15 +171,27 @@ pub fn load() -> Result<Policy> {
     };
 
     // Validate user-supplied bash patterns are compilable regexes.
-    // Warn and skip invalid ones rather than refusing to start — a single
-    // bad pattern shouldn't disable all other protections.
+    // Reject the entire policy rather than silently skipping broken patterns —
+    // a typo in a protection rule could leave a gap the admin thinks is covered.
     for pattern in &policy.bash.block_patterns {
-        if regex::Regex::new(pattern).is_err() {
-            eprintln!(
-                "kiteguard: WARNING — invalid regex in rules.json bash.block_patterns: {:?} (skipping)",
-                pattern
-            );
-        }
+        regex::Regex::new(pattern).map_err(|e| {
+            format!(
+                "Invalid regex in rules.json bash.block_patterns: {:?}: {}",
+                pattern, e
+            )
+        })?;
+    }
+
+    // Warn loudly if any protection module has been explicitly disabled so that
+    // an accidental edit does not silently reduce the security posture.
+    if !policy.bash.enabled {
+        eprintln!("kiteguard: WARNING — bash protection is DISABLED in rules.json");
+    }
+    if !policy.injection.enabled {
+        eprintln!("kiteguard: WARNING — injection protection is DISABLED in rules.json");
+    }
+    if !policy.pii.block_in_prompt {
+        eprintln!("kiteguard: WARNING — PII prompt blocking is DISABLED in rules.json");
     }
 
     Ok(policy)
@@ -175,6 +206,24 @@ fn verify_policy_signature(raw_content: &str) -> Result<()> {
     let sig_path = config_dir.join("policy.sig");
 
     if !key_path.exists() || !sig_path.exists() {
+        // Two independent sentinels must both be absent for us to treat this as
+        // "not yet signed" (first-run / pre-init).  An attacker trying to bypass
+        // signing by deleting the key files would need to also delete BOTH:
+        //   • .signature_required  — written at first sign (contains key material)
+        //   • .key_fingerprint     — SHA-256 of the key, written at first sign
+        //     (no key material, so there is no legitimate reason to delete it)
+        // Requiring deletion of both files makes bypasses much harder to execute
+        // without leaving obvious forensic traces.
+        let sentinel = config_dir.join(".signature_required");
+        let fingerprint = config_dir.join(".key_fingerprint");
+        if sentinel.exists() || fingerprint.exists() {
+            return Err(concat!(
+                "POLICY INTEGRITY CHECK FAILED — signing key or signature file is missing.\n",
+                "  This may indicate an attempt to bypass policy enforcement by deleting key files.\n",
+                "  To restore: run 'kiteguard policy sign' to re-establish the signature.\n",
+                "  All actions are blocked until the signature is restored (fail-closed)."
+            ).into());
+        }
         return Ok(()); // Not yet signed — first run or pre-init
     }
 

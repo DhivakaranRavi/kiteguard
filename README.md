@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/src/assets/kiteguard.png" alt="kiteguard logo" width="180" />
+  <img src="docs/src/assets/kiteguard-logo.png" alt="kiteguard logo" width="180" />
 </p>
 
 <p align="center">
@@ -104,6 +104,7 @@ Works with secure defaults. To customize for your org, create `~/.kiteguard/rule
 | Command | Description |
 |---|---|
 | `kiteguard init` | Register kiteguard hooks with Claude Code |
+| `kiteguard serve [PORT]` | Launch the local security console (default: 7070) |
 | `kiteguard audit` | View the local audit log (all events) |
 | `kiteguard audit verify` | Verify audit log hash-chain integrity — detects tampering |
 | `kiteguard policy` | View active security policies (alias for `policy list`) |
@@ -115,15 +116,54 @@ Works with secure defaults. To customize for your org, create `~/.kiteguard/rule
 
 ---
 
+## Console
+
+`kiteguard serve` launches a local security console — no cloud, no account, no data leaves your machine.
+
+```bash
+kiteguard serve          # http://localhost:7070
+kiteguard serve 9090     # custom port
+```
+
+### What you see
+
+**Stats bar** — live counters across all intercepted events:
+- Total events, total blocks, allow rate %, active rule count
+
+**Threat chart** — doughnut chart breaking down blocked events by rule type (secrets leak, prompt injection, PII exposure, path traversal, command exec)
+
+**Timeline** — hourly bar chart of the last 24 hours showing event volume at a glance
+
+**Audit log table** — paginated list (100 events/page) with:
+
+| Column | Detail |
+|---|---|
+| TIMESTAMP | Local date + time |
+| HOOK | Which intercept point fired (UserPromptSubmit / PreToolUse / PostToolUse / Stop) |
+| VERDICT | ✓ ALLOW (green) or ✕ BLOCK (red) |
+| REPO | Git repo the event came from |
+| USER | OS user running Claude Code |
+
+**Filter bar** — narrow the table by verdict (Block / Allow) or hook type. Filters reset pagination automatically.
+
+**Event detail modal** — click any row to see the full event:
+- Rule that triggered the block
+- **Reason** — the exact detection detail (e.g. `"AWS secret key AKIA... detected in Write tool argument"`)
+- Host, input hash, and chain hash for tamper verification
+- Click outside or `[✕ CLOSE]` to dismiss
+
+---
+
 ## Audit log
 
-Every event is logged to `~/.kiteguard/audit.log`:
+Every event is logged to `~/.kiteguard/audit.log` as hash-chained JSONL:
 
+```json
+{"ts":"2026-03-28T10:23:01Z","hook":"PreToolUse","verdict":"Block","rule":"dangerous_command","reason":"Blocked shell command: rm -rf /var/log/* in Bash tool","user":"alice","host":"macbook-pro","repo":"acme/infra","input_hash":"a3f9...","prev_hash":"b12c..."}
+{"ts":"2026-03-28T10:23:45Z","hook":"UserPromptSubmit","verdict":"Allow","rule":"","reason":"","user":"alice","host":"macbook-pro","repo":"acme/frontend","input_hash":"d7e2...","prev_hash":"a3f9..."}
 ```
-TIMESTAMP                      HOOK                      VERDICT   RULE
-2026-03-28T10:23:01Z           PreToolUse                🚫 block  dangerous_command
-2026-03-28T10:23:45Z           UserPromptSubmit          ✅ allow
-```
+
+Each entry includes `reason` for blocked events — the exact detection detail (e.g. `"AWS secret key pattern AKIA... detected"`). The hash-chain links every entry to the previous one, making log tampering detectable via `kiteguard audit verify`.
 
 ---
 

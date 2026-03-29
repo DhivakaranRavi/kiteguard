@@ -134,12 +134,16 @@ fn is_blocked_ip(ip: std::net::IpAddr) -> bool {
                 || (o[0] == 172 && (16..=31).contains(&o[1])) // 172.16–31.x private
                 || (o[0] == 192 && o[1] == 168)                // 192.168.x.x private
                 || (o[0] == 169 && o[1] == 254)                // 169.254.x.x link-local
-                || o[0] == 0 // 0.0.0.0/8
+                || o[0] == 0                                   // 0.0.0.0/8 source address
+                || (o[0] == 100 && (64..=127).contains(&o[1]))  // 100.64.0.0/10 CGNAT (RFC 6598)
+                || (o[0] == 198 && (18..=19).contains(&o[1]))  // 198.18.0.0/15 benchmarking (RFC 2544)
+                || o[0] >= 224                                 // 224.0.0.0/4 multicast + 240.0.0.0/4 reserved
         }
         std::net::IpAddr::V6(v6) => {
             v6.is_loopback()                                        // ::1
                 || (v6.segments()[0] & 0xfe00) == 0xfc00            // fc00::/7 ULA (covers fd00::)
                 || (v6.segments()[0] & 0xffc0) == 0xfe80            // fe80::/10 link-local
+                || v6.is_multicast()                                // ff00::/8 multicast
                 || match v6.to_ipv4_mapped() {                      // ::ffff:0:0/96
                     Some(v4) => {
                         let o = v4.octets();
@@ -148,6 +152,8 @@ fn is_blocked_ip(ip: std::net::IpAddr) -> bool {
                             || (o[0] == 172 && (16..=31).contains(&o[1]))
                             || (o[0] == 192 && o[1] == 168)
                             || (o[0] == 169 && o[1] == 254)
+                            || (o[0] == 100 && (64..=127).contains(&o[1]))
+                            || o[0] >= 224
                     }
                     None => false,
                 }
@@ -176,62 +182,94 @@ pub fn send(config: &WebhookConfig, hook_event: &str, verdict: &Verdict) -> Resu
 
     // Use serde_json to build the body — avoids JSON injection if hook_event
     // or verdict contain control characters or double-quotes.
+    // Include full attribution context so receivers can correlate with the audit log.
     let body = serde_json::json!({
-        "source": "kiteguard",
-        "hook":   hook_event,
-        "verdict": verdict.as_str()
+        "source":  "kiteguard",
+        "ts":      crate::util::timestamp(),
+        "hook":    hook_event,
+        "verdict": verdict.as_str(),
+        "rule":    match verdict { crate::engine::verdict::Verdict::Block { rule, .. } => rule.as_str(), _ => "" },
+        "user":    crate::audit::logger::identity_user(),
+        "host":    crate::audit::logger::identity_host(),
+        "repo":    crate::audit::logger::identity_repo(),
     })
     .to_string();
 
-    // Build a curl config block piped via stdin — token never hits the
-    // process list. If token starts with '$', resolve from env var.
-    let resolved_token = config.token.as_ref().map(|t| {
+    // Resolve token. If token starts with '$', read from the named env var.
+    // Warn loudly when the variable is unset — silent unauthenticated sends
+    // would mean audit events reach the SIEM without any bearer token.
+    let resolved_token: Option<String> = config.token.as_ref().and_then(|t| {
         if let Some(var_name) = t.strip_prefix('$') {
-            std::env::var(var_name).unwrap_or_default()
+            match std::env::var(var_name) {
+                Ok(val) if !val.is_empty() => Some(val),
+                _ => {
+                    eprintln!(
+                        "kiteguard: WARNING — webhook token env var '{}' is not set or empty; \
+sending event without authentication",
+                        var_name
+                    );
+                    None
+                }
+            }
         } else {
-            t.clone()
+            Some(t.clone())
         }
     });
 
-    // Sanitize URL and token before embedding in curl's config format.
-    // Strip newlines and double-quotes to prevent injecting extra config
-    // directives if rules.json contains a crafted URL or token value.
-    let safe_url = sanitize_curl_value(&config.url);
-    let mut curl_cfg = format!(
-        "url = \"{url}\"\nrequest = POST\nheader = \"Content-Type: application/json\"\nheader = \"User-Agent: kiteguard/0.1.0\"\ndata = {body}",
-        url = safe_url,
-        body = body
-    );
-    if let Some(ref tok) = resolved_token {
-        if !tok.is_empty() {
-            let safe_tok = sanitize_curl_value(tok);
-            curl_cfg.push_str(&format!(
-                "\nheader = \"Authorization: Bearer {}\"",
-                safe_tok
-            ));
-        }
+    let has_token = resolved_token.as_ref().map(|t| !t.is_empty()).unwrap_or(false);
+
+    // Build curl command using direct CLI arguments.
+    //
+    // Security rationale:
+    // • URL is passed as a positional argument (never embedded in a config-file
+    //   format string), eliminating any curl config-file injection risk.
+    // • --max-time 3 enforces a hard socket-level timeout so a slow/malicious
+    //   endpoint cannot stall the Claude Code pipeline for more than 3 seconds.
+    // • The Authorization header is the only value written to -K stdin, and its
+    //   content is sanitized to strip newlines/quotes, so there is nothing to
+    //   inject into on subsequent config lines.
+    use std::process::Stdio;
+    let mut cmd = std::process::Command::new("curl");
+    cmd.arg("-s")
+        .arg("--max-time").arg("3")
+        .arg("-X").arg("POST")
+        .arg("-H").arg("Content-Type: application/json")
+        .arg("-H").arg("User-Agent: kiteguard/0.1.0")
+        .arg("--data-raw").arg(&body);
+
+    if has_token {
+        // Token via -K stdin keeps it out of `ps aux`.
+        cmd.arg("-K").arg("-").stdin(Stdio::piped());
+    } else {
+        cmd.stdin(Stdio::null());
     }
 
-    use std::io::Write;
-    let mut child = match std::process::Command::new("curl")
-        .arg("-s")
-        .arg("-K")
-        .arg("-") // read config from stdin
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .spawn()
-    {
+    // URL as positional argument — never parsed as config-file syntax.
+    cmd.arg(&config.url)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+
+    let mut child = match cmd.spawn() {
         Ok(c) => c,
         Err(_) => return Ok(()), // curl not available — best-effort
     };
 
-    if let Some(ref mut stdin) = child.stdin {
-        let _ = stdin.write_all(curl_cfg.as_bytes());
+    if has_token {
+        if let Some(tok) = &resolved_token {
+            if let Some(mut stdin) = child.stdin.take() {
+                use std::io::Write;
+                let safe_tok = sanitize_curl_header_value(tok);
+                let _ = stdin.write_all(
+                    format!("header = \"Authorization: Bearer {}\"\n", safe_tok).as_bytes(),
+                );
+                // Drop stdin here to signal EOF so curl starts the request.
+            }
+        }
     }
 
-    // 5-second timeout — don't stall the Claude pipeline on a slow/down SIEM.
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    // Curl's --max-time 3 provides a hard deadline at the socket level.
+    // We poll for up to 4 seconds to reap the process and avoid zombies.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(4);
     loop {
         match child.try_wait() {
             Ok(Some(_)) => break,
@@ -248,11 +286,12 @@ pub fn send(config: &WebhookConfig, hook_event: &str, verdict: &Verdict) -> Resu
     Ok(())
 }
 
-/// Strips characters that could escape or inject into curl's `-K` config format.
-/// Curl config values are line-oriented; a bare newline would start a new
-/// directive. Double-quotes terminate the current quoted value. Null bytes
-/// (\0) can cause unexpected truncation in C-based config parsing.
-fn sanitize_curl_value(s: &str) -> String {
+/// Strips characters that could inject into a curl config-file header value.
+/// Used only for the Authorization header value passed via `-K` stdin.
+/// - \n / \r : would start a new config-file directive
+/// - "       : would terminate the quoted value
+/// - \0      : unexpected truncation in C-based config parsing
+fn sanitize_curl_header_value(s: &str) -> String {
     s.chars()
         .filter(|c| *c != '\n' && *c != '\r' && *c != '"' && *c != '\0')
         .collect()
