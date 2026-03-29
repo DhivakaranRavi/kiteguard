@@ -41,10 +41,8 @@ fn compiled() -> &'static Vec<(String, Regex, String)> {
     COMPILED.get_or_init(|| {
         PII_PATTERNS
             .iter()
-            .filter_map(|(pii_type, pat, desc)| {
-                Regex::new(pat)
-                    .ok()
-                    .map(|re| (pii_type.to_string(), re, desc.to_string()))
+            .map(|(pii_type, pat, desc)| {
+                (pii_type.to_string(), Regex::new(pat).expect("static PII pattern must compile"), desc.to_string())
             })
             .collect()
     })

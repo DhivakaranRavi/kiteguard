@@ -1,6 +1,8 @@
 use axum::{
+    extract::Request,
     extract::Query,
-    http::{header, StatusCode},
+    http::{header, HeaderValue, StatusCode},
+    middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::get,
     Json, Router,
@@ -139,7 +141,7 @@ async fn stats_handler() -> Response {
         let ts = e.get("ts").and_then(|v| v.as_str()).unwrap_or("");
 
         match verdict {
-            "Block" => blocks += 1,
+            "block" => blocks += 1,
             _ => allows += 1,
         }
 
@@ -293,6 +295,29 @@ fn days_to_ymd(mut days: u64) -> (u64, u64, u64) {
     (y, m, d)
 }
 
+/// Middleware that attaches security headers to every response.
+/// Mitigates MIME-sniffing, clickjacking, and basic XSS on the localhost console.
+async fn security_headers(req: Request, next: Next) -> Response {
+    let mut res = next.run(req).await;
+    let h = res.headers_mut();
+    h.insert(
+        header::HeaderName::from_static("x-content-type-options"),
+        HeaderValue::from_static("nosniff"),
+    );
+    h.insert(
+        header::HeaderName::from_static("x-frame-options"),
+        HeaderValue::from_static("DENY"),
+    );
+    h.insert(
+        header::HeaderName::from_static("content-security-policy"),
+        HeaderValue::from_static(
+            "default-src 'self'; style-src 'self' 'unsafe-inline'; \
+             script-src 'self' 'unsafe-inline'; img-src 'self' data:",
+        ),
+    );
+    res
+}
+
 pub fn run(port: u16) -> Result<()> {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -303,7 +328,8 @@ pub fn run(port: u16) -> Result<()> {
         let app = Router::new()
             .route("/api/stats", get(stats_handler))
             .route("/api/events", get(events_handler))
-            .fallback(static_handler);
+            .fallback(static_handler)
+            .layer(middleware::from_fn(security_headers));
 
         let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
         println!(

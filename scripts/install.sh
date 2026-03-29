@@ -67,17 +67,21 @@ else
 
     # ── Verify checksum ───────────────────────────────────────────────────────
     CHECKSUM_URL="https://github.com/${REPO}/releases/download/${VERSION}/checksums.sha256"
-    EXPECTED=$(curl -sSfL "${CHECKSUM_URL}" 2>/dev/null | grep "${BINARY_NAME}-${PLATFORM}" | awk '{print $1}' || true)
+    EXPECTED=$(curl -sSfL "${CHECKSUM_URL}" | grep "${BINARY_NAME}-${PLATFORM}" | awk '{print $1}')
 
-    if [[ -n "${EXPECTED}" ]]; then
-        ACTUAL=$(sha256sum "${TMP_FILE}" 2>/dev/null || shasum -a 256 "${TMP_FILE}" | awk '{print $1}')
-        if [[ "${EXPECTED}" != "${ACTUAL}" ]]; then
-            echo "Checksum verification FAILED. Aborting installation."
-            rm -f "${TMP_FILE}"
-            exit 1
-        fi
-        echo "Checksum verified ✓"
+    if [[ -z "${EXPECTED}" ]]; then
+        echo "ERROR: Could not fetch or parse checksum for ${BINARY_NAME}-${PLATFORM}. Aborting for safety."
+        rm -f "${TMP_FILE}"
+        exit 1
     fi
+
+    ACTUAL=$(sha256sum "${TMP_FILE}" 2>/dev/null || shasum -a 256 "${TMP_FILE}" | awk '{print $1}')
+    if [[ "${EXPECTED}" != "${ACTUAL}" ]]; then
+        echo "Checksum verification FAILED. Aborting installation."
+        rm -f "${TMP_FILE}"
+        exit 1
+    fi
+    echo "Checksum verified ✓"
 
     # ── Install binary ────────────────────────────────────────────────────────
     if [[ -w "${INSTALL_DIR}" ]]; then

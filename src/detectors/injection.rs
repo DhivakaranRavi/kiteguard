@@ -43,7 +43,9 @@ fn compiled() -> &'static Vec<(Regex, String)> {
     COMPILED.get_or_init(|| {
         INJECTION_PATTERNS
             .iter()
-            .filter_map(|(pat, rule)| Regex::new(pat).ok().map(|re| (re, rule.to_string())))
+            .map(|(pat, rule)| {
+                (Regex::new(pat).expect("static injection pattern must compile"), rule.to_string())
+            })
             .collect()
     })
 }

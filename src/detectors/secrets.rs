@@ -51,7 +51,9 @@ fn compiled() -> &'static Vec<(Regex, String)> {
     COMPILED.get_or_init(|| {
         SECRET_PATTERNS
             .iter()
-            .filter_map(|(pat, desc)| Regex::new(pat).ok().map(|re| (re, desc.to_string())))
+            .map(|(pat, desc)| {
+                (Regex::new(pat).expect("static secret pattern must compile"), desc.to_string())
+            })
             .collect()
     })
 }

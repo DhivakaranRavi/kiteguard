@@ -25,26 +25,57 @@ pub const SSRF_BLOCKED: &[&str] = &[
 ///    - Decimal integer: 2130706433
 ///    - Octal-dotted:    0177.0.0.1
 ///    - IPv4-mapped IPv6: ::ffff:127.0.0.1
+///
+/// Both the raw URL and a percent-decoded copy are checked so that encodings
+/// like `http://127%2e0%2e0%2e1/` cannot bypass the host extraction + IP check.
 pub fn is_ssrf_safe(url: &str) -> bool {
     let lower = url.to_lowercase();
+    let decoded = percent_decode_host(&lower);
 
-    // Layer 1: known hostname string-match
+    // Layer 1: known hostname string-match (raw and decoded)
     for blocked in SSRF_BLOCKED {
-        if lower.contains(blocked) {
+        if lower.contains(blocked) || decoded.contains(blocked) {
             return false;
         }
     }
 
     // Layer 2: IP-level CIDR check (handles encoded/alternate notations)
-    if let Some(host) = extract_host(&lower) {
-        if let Some(ip) = parse_ip_any(&host) {
-            if is_blocked_ip(ip) {
-                return false;
+    // Run against both the raw URL string and the percent-decoded copy.
+    for candidate in [lower.as_str(), decoded.as_str()] {
+        if let Some(host) = extract_host(candidate) {
+            if let Some(ip) = parse_ip_any(&host) {
+                if is_blocked_ip(ip) {
+                    return false;
+                }
             }
         }
     }
 
     true
+}
+
+/// Decode `%XX` sequences in a URL string so that percent-encoded private IPs
+/// (e.g. `127%2e0%2e0%2e1`) are caught by the hostname and IP checks.
+/// Only ASCII characters are relevant for hostnames; non-ASCII percent sequences
+/// are left as the decoded byte cast to char (safe for comparison purposes).
+fn percent_decode_host(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            let hi = (bytes[i + 1] as char).to_digit(16);
+            let lo = (bytes[i + 2] as char).to_digit(16);
+            if let (Some(h), Some(l)) = (hi, lo) {
+                out.push((h * 16 + l) as u8 as char);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i] as char);
+        i += 1;
+    }
+    out
 }
 
 /// Extracts the hostname from a URL, stripping scheme, userinfo, port, and path.

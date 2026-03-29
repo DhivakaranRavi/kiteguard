@@ -39,7 +39,16 @@ pub fn run() -> Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&settings_path, std::fs::Permissions::from_mode(0o600));
+        if let Err(e) = std::fs::set_permissions(
+            &settings_path,
+            std::fs::Permissions::from_mode(0o600),
+        ) {
+            eprintln!(
+                "kiteguard: WARNING — could not restrict {} permissions: {}. \
+Manually run: chmod 600 {}",
+                settings_path.display(), e, settings_path.display()
+            );
+        }
     }
 
     // Create default config dir and lock it down (chmod 700)
@@ -49,7 +58,16 @@ pub fn run() -> Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&config_dir, std::fs::Permissions::from_mode(0o700));
+        if let Err(e) = std::fs::set_permissions(
+            &config_dir,
+            std::fs::Permissions::from_mode(0o700),
+        ) {
+            eprintln!(
+                "kiteguard: WARNING — could not restrict {} permissions: {}. \
+Manually run: chmod 700 {}",
+                config_dir.display(), e, config_dir.display()
+            );
+        }
     }
 
     // Generate signing key (if none exists) and sign the current policy.
@@ -92,7 +110,16 @@ pub fn sign_policy(config_dir: &std::path::Path) -> Result<()> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600));
+            if let Err(e) = std::fs::set_permissions(
+                &key_path,
+                std::fs::Permissions::from_mode(0o600),
+            ) {
+                eprintln!(
+                    "kiteguard: WARNING — could not restrict signing key permissions ({}): {}. \
+Policy signing may be weaker. Manually run: chmod 600 {}",
+                    key_path.display(), e, key_path.display()
+                );
+            }
         }
         key
     };
@@ -104,7 +131,16 @@ pub fn sign_policy(config_dir: &std::path::Path) -> Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&sig_path, std::fs::Permissions::from_mode(0o600));
+        if let Err(e) = std::fs::set_permissions(
+            &sig_path,
+            std::fs::Permissions::from_mode(0o600),
+        ) {
+            eprintln!(
+                "kiteguard: WARNING — could not restrict {} permissions: {}. \
+Manually run: chmod 600 {}",
+                sig_path.display(), e, sig_path.display()
+            );
+        }
     }
 
     // Write sentinel so verify_policy_signature() can detect if key files are
@@ -116,10 +152,16 @@ pub fn sign_policy(config_dir: &std::path::Path) -> Result<()> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(
+            if let Err(e) = std::fs::set_permissions(
                 &sentinel_path,
                 std::fs::Permissions::from_mode(0o600),
-            );
+            ) {
+                eprintln!(
+                    "kiteguard: WARNING — could not restrict {} permissions: {}. \
+Manually run: chmod 600 {}",
+                    sentinel_path.display(), e, sentinel_path.display()
+                );
+            }
         }
     }
 
@@ -134,10 +176,16 @@ pub fn sign_policy(config_dir: &std::path::Path) -> Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(
+        if let Err(e) = std::fs::set_permissions(
             &fingerprint_path,
             std::fs::Permissions::from_mode(0o600),
-        );
+        ) {
+            eprintln!(
+                "kiteguard: WARNING — could not restrict {} permissions: {}. \
+Manually run: chmod 600 {}",
+                fingerprint_path.display(), e, fingerprint_path.display()
+            );
+        }
     }
 
     Ok(())
