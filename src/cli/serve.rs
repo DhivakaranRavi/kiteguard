@@ -9,11 +9,45 @@ use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::sync::Mutex;
 
 use crate::error::Result;
 
 // Bound memory usage: never load more than this many log entries at once.
 const MAX_LOG_ENTRIES: usize = 10_000;
+
+// Simple rate-limiter: allow at most this many requests per minute per endpoint.
+// The console is localhost-only, but a rogue local process should not be able
+// to cause unbounded file I/O by hammering the API.
+const RATE_LIMIT_PER_MIN: u32 = 120;
+
+struct RateLimiter {
+    window_start: u64, // unix seconds at start of current 60-s window
+    count: u32,
+}
+
+impl RateLimiter {
+    const fn new() -> Self {
+        RateLimiter { window_start: 0, count: 0 }
+    }
+
+    /// Returns true if the request should be allowed (updates internal state).
+    fn check(&mut self) -> bool {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        if now >= self.window_start + 60 {
+            self.window_start = now;
+            self.count = 0;
+        }
+        self.count += 1;
+        self.count <= RATE_LIMIT_PER_MIN
+    }
+}
+
+static STATS_RL: Mutex<RateLimiter> = Mutex::new(RateLimiter::new());
+static EVENTS_RL: Mutex<RateLimiter> = Mutex::new(RateLimiter::new());
 
 // Embed the compiled Vue dist/ at build time.
 // If the console hasn't been built yet, the folder may not exist —
@@ -84,7 +118,10 @@ fn read_entries() -> Vec<Value> {
 
 // ── Handlers ───────────────────────────────────────────────────────────────────
 
-async fn stats_handler() -> Json<StatsResponse> {
+async fn stats_handler() -> Response {
+    if !STATS_RL.lock().unwrap_or_else(|e| e.into_inner()).check() {
+        return (StatusCode::TOO_MANY_REQUESTS, "rate limit exceeded").into_response();
+    }
     let entries = read_entries();
     let total = entries.len();
 
@@ -138,9 +175,13 @@ async fn stats_handler() -> Json<StatsResponse> {
         threat_breakdown,
         hourly: hourly_vec,
     })
+    .into_response()
 }
 
-async fn events_handler(Query(q): Query<EventsQuery>) -> Json<EventsResponse> {
+async fn events_handler(Query(q): Query<EventsQuery>) -> Response {
+    if !EVENTS_RL.lock().unwrap_or_else(|e| e.into_inner()).check() {
+        return (StatusCode::TOO_MANY_REQUESTS, "rate limit exceeded").into_response();
+    }
     let all_entries = read_entries();
     let page = q.page.unwrap_or(1).max(1);
     let limit = q.limit.unwrap_or(50).min(100); // max 100 matches console LIMIT constant
@@ -177,6 +218,7 @@ async fn events_handler(Query(q): Query<EventsQuery>) -> Json<EventsResponse> {
         page,
         limit,
     })
+    .into_response()
 }
 
 fn mime_from_path(path: &str) -> &'static str {

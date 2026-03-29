@@ -12,8 +12,9 @@ static REDOS_CHECK: OnceLock<Regex> = OnceLock::new();
 /// backtracking: nested quantifiers like `(x+)+`, `(x*)*`, `(x|x)*`.
 fn is_redos_risky(pattern: &str) -> bool {
     // Compiled once — previously this called Regex::new on every invocation.
+    // (?i) ensures uppercase quantifiers like `X+)+` are also caught.
     let risky = REDOS_CHECK
-        .get_or_init(|| Regex::new(r"[+*?}][)\]]\s*[+*?{]|\([^)]*[+*?]\s*\)[+*?]").unwrap());
+        .get_or_init(|| Regex::new(r"(?i)[+*?}][)\]]\s*[+*?{]|\([^)]*[+*?]\s*\)[+*?]").unwrap());
     risky.is_match(pattern)
 }
 

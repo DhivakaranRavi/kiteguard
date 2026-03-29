@@ -74,6 +74,11 @@ fn glob_match(pattern: &str, path: &str) -> bool {
 
 fn glob_to_regex(pattern: &str) -> String {
     let mut result = String::from("^");
+    // Strip backslashes before converting — glob syntax has no escape sequences
+    // (unlike regex). A user who writes `**/*\.env` intending a literal dot
+    // would otherwise get a regex that requires a literal backslash in the
+    // filename. Removing backslashes makes glob semantics unambiguous.
+    let pattern: String = pattern.chars().filter(|&c| c != '\\').collect();
     let chars: Vec<char> = pattern.chars().collect();
     let mut i = 0;
     while i < chars.len() {
