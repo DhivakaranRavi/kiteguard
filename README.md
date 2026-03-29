@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/src/assets/kiteguard-logo.png" alt="kiteguard logo" width="180" />
+  <img src="docs/src/assets/kiteguard-logo-white.png" alt="kiteguard logo" width="180" />
 </p>
 
 <p align="center">
