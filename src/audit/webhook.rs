@@ -180,7 +180,7 @@ fn is_blocked_ip(ip: std::net::IpAddr) -> bool {
                 || o[0] == 0                                   // 0.0.0.0/8 source address
                 || (o[0] == 100 && (64..=127).contains(&o[1]))  // 100.64.0.0/10 CGNAT (RFC 6598)
                 || (o[0] == 198 && (18..=19).contains(&o[1]))  // 198.18.0.0/15 benchmarking (RFC 2544)
-                || o[0] >= 224                                 // 224.0.0.0/4 multicast + 240.0.0.0/4 reserved
+                || o[0] >= 224 // 224.0.0.0/4 multicast + 240.0.0.0/4 reserved
         }
         std::net::IpAddr::V6(v6) => {
             v6.is_loopback()                                        // ::1
@@ -259,7 +259,10 @@ sending event without authentication",
         }
     });
 
-    let has_token = resolved_token.as_ref().map(|t| !t.is_empty()).unwrap_or(false);
+    let has_token = resolved_token
+        .as_ref()
+        .map(|t| !t.is_empty())
+        .unwrap_or(false);
 
     // Build curl command using direct CLI arguments.
     //
@@ -274,11 +277,16 @@ sending event without authentication",
     use std::process::Stdio;
     let mut cmd = std::process::Command::new("curl");
     cmd.arg("-s")
-        .arg("--max-time").arg("3")
-        .arg("-X").arg("POST")
-        .arg("-H").arg("Content-Type: application/json")
-        .arg("-H").arg("User-Agent: kiteguard/0.1.0")
-        .arg("--data-raw").arg(&body);
+        .arg("--max-time")
+        .arg("3")
+        .arg("-X")
+        .arg("POST")
+        .arg("-H")
+        .arg("Content-Type: application/json")
+        .arg("-H")
+        .arg("User-Agent: kiteguard/0.1.0")
+        .arg("--data-raw")
+        .arg(&body);
 
     if has_token {
         // Token via -K stdin keeps it out of `ps aux`.

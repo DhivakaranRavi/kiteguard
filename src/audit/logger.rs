@@ -101,11 +101,13 @@ Audit log may be readable by other local users.",
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        if let Err(e) = std::fs::set_permissions(&log_path, std::fs::Permissions::from_mode(0o600)) {
+        if let Err(e) = std::fs::set_permissions(&log_path, std::fs::Permissions::from_mode(0o600))
+        {
             eprintln!(
                 "kiteguard: WARNING — could not restrict audit log file permissions ({}): {}. \
 Audit log may be readable by other local users.",
-                log_path.display(), e
+                log_path.display(),
+                e
             );
         }
     }
@@ -277,6 +279,12 @@ mod identity {
 
 // Public re-exports so other modules (e.g. webhook.rs) can reuse the same
 // identity resolution without duplicating logic.
-pub fn identity_user() -> String { identity::user() }
-pub fn identity_host() -> String { identity::host() }
-pub fn identity_repo() -> String { identity::repo() }
+pub fn identity_user() -> String {
+    identity::user()
+}
+pub fn identity_host() -> String {
+    identity::host()
+}
+pub fn identity_repo() -> String {
+    identity::repo()
+}

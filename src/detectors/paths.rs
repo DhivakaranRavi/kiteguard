@@ -88,7 +88,9 @@ fn canonicalize_best_effort(path: &str) -> String {
         }
         // Stop at filesystem root.
         if ancestor.components().count() == 0
-            || ancestor.components().all(|c| matches!(c, Component::RootDir))
+            || ancestor
+                .components()
+                .all(|c| matches!(c, Component::RootDir))
         {
             break;
         }

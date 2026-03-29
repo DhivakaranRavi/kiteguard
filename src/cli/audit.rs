@@ -185,7 +185,9 @@ fn verify_file(log_path: &std::path::Path, label: &str) -> Result<(usize, usize)
         if !ts.is_empty() && !last_ts.is_empty() && ts < last_ts.as_str() {
             eprintln!(
                 "  [FAIL] entry {:>5}: timestamp went backwards ({} < {}) — possible replay attack",
-                i + 1, ts, last_ts
+                i + 1,
+                ts,
+                last_ts
             );
             errors += 1;
         }

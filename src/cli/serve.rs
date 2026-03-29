@@ -1,6 +1,6 @@
 use axum::{
-    extract::Request,
     extract::Query,
+    extract::Request,
     http::{header, HeaderValue, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -30,7 +30,10 @@ struct RateLimiter {
 
 impl RateLimiter {
     const fn new() -> Self {
-        RateLimiter { window_start: 0, count: 0 }
+        RateLimiter {
+            window_start: 0,
+            count: 0,
+        }
     }
 
     /// Returns true if the request should be allowed (updates internal state).
@@ -98,7 +101,9 @@ fn read_entries() -> Vec<Value> {
     let home = match std::env::var("HOME") {
         Ok(h) => h,
         Err(_) => {
-            eprintln!("kiteguard: WARNING — HOME environment variable not set; audit log unavailable");
+            eprintln!(
+                "kiteguard: WARNING — HOME environment variable not set; audit log unavailable"
+            );
             return vec![];
         }
     };

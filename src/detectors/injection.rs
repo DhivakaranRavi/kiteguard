@@ -44,7 +44,10 @@ fn compiled() -> &'static Vec<(Regex, String)> {
         INJECTION_PATTERNS
             .iter()
             .map(|(pat, rule)| {
-                (Regex::new(pat).expect("static injection pattern must compile"), rule.to_string())
+                (
+                    Regex::new(pat).expect("static injection pattern must compile"),
+                    rule.to_string(),
+                )
             })
             .collect()
     })

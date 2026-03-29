@@ -52,7 +52,10 @@ fn compiled() -> &'static Vec<(Regex, String)> {
         SECRET_PATTERNS
             .iter()
             .map(|(pat, desc)| {
-                (Regex::new(pat).expect("static secret pattern must compile"), desc.to_string())
+                (
+                    Regex::new(pat).expect("static secret pattern must compile"),
+                    desc.to_string(),
+                )
             })
             .collect()
     })

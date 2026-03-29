@@ -39,14 +39,15 @@ pub fn run() -> Result<()> {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        if let Err(e) = std::fs::set_permissions(
-            &settings_path,
-            std::fs::Permissions::from_mode(0o600),
-        ) {
+        if let Err(e) =
+            std::fs::set_permissions(&settings_path, std::fs::Permissions::from_mode(0o600))
+        {
             eprintln!(
                 "kiteguard: WARNING — could not restrict {} permissions: {}. \
 Manually run: chmod 600 {}",
-                settings_path.display(), e, settings_path.display()
+                settings_path.display(),
+                e,
+                settings_path.display()
             );
         }
     }
@@ -58,14 +59,15 @@ Manually run: chmod 600 {}",
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        if let Err(e) = std::fs::set_permissions(
-            &config_dir,
-            std::fs::Permissions::from_mode(0o700),
-        ) {
+        if let Err(e) =
+            std::fs::set_permissions(&config_dir, std::fs::Permissions::from_mode(0o700))
+        {
             eprintln!(
                 "kiteguard: WARNING — could not restrict {} permissions: {}. \
 Manually run: chmod 700 {}",
-                config_dir.display(), e, config_dir.display()
+                config_dir.display(),
+                e,
+                config_dir.display()
             );
         }
     }
@@ -98,31 +100,31 @@ pub fn sign_policy(config_dir: &std::path::Path) -> Result<()> {
     let rules_path = config_dir.join("rules.json");
     let rules_content = fs::read_to_string(&rules_path).unwrap_or_default();
 
-    let key = if key_path.exists() {
-        let hex = fs::read_to_string(&key_path)
-            .map_err(|e| format!("Failed to read policy key: {}", e))?;
-        crate::crypto::hex_to_bytes(hex.trim())
-            .ok_or("Policy key file is corrupted (invalid hex)")?
-    } else {
-        let key = generate_random_key()?;
-        let hex = crate::crypto::bytes_to_hex(&key);
-        fs::write(&key_path, &hex).map_err(|e| format!("Failed to write policy key: {}", e))?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            if let Err(e) = std::fs::set_permissions(
-                &key_path,
-                std::fs::Permissions::from_mode(0o600),
-            ) {
-                eprintln!(
+    let key =
+        if key_path.exists() {
+            let hex = fs::read_to_string(&key_path)
+                .map_err(|e| format!("Failed to read policy key: {}", e))?;
+            crate::crypto::hex_to_bytes(hex.trim())
+                .ok_or("Policy key file is corrupted (invalid hex)")?
+        } else {
+            let key = generate_random_key()?;
+            let hex = crate::crypto::bytes_to_hex(&key);
+            fs::write(&key_path, &hex).map_err(|e| format!("Failed to write policy key: {}", e))?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Err(e) =
+                    std::fs::set_permissions(&key_path, std::fs::Permissions::from_mode(0o600))
+                {
+                    eprintln!(
                     "kiteguard: WARNING — could not restrict signing key permissions ({}): {}. \
 Policy signing may be weaker. Manually run: chmod 600 {}",
                     key_path.display(), e, key_path.display()
                 );
+                }
             }
-        }
-        key
-    };
+            key
+        };
 
     let sig = crate::crypto::hmac_sign(&key, rules_content.as_bytes());
     let sig_path = config_dir.join("policy.sig");
@@ -131,14 +133,14 @@ Policy signing may be weaker. Manually run: chmod 600 {}",
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        if let Err(e) = std::fs::set_permissions(
-            &sig_path,
-            std::fs::Permissions::from_mode(0o600),
-        ) {
+        if let Err(e) = std::fs::set_permissions(&sig_path, std::fs::Permissions::from_mode(0o600))
+        {
             eprintln!(
                 "kiteguard: WARNING — could not restrict {} permissions: {}. \
 Manually run: chmod 600 {}",
-                sig_path.display(), e, sig_path.display()
+                sig_path.display(),
+                e,
+                sig_path.display()
             );
         }
     }
@@ -152,14 +154,15 @@ Manually run: chmod 600 {}",
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            if let Err(e) = std::fs::set_permissions(
-                &sentinel_path,
-                std::fs::Permissions::from_mode(0o600),
-            ) {
+            if let Err(e) =
+                std::fs::set_permissions(&sentinel_path, std::fs::Permissions::from_mode(0o600))
+            {
                 eprintln!(
                     "kiteguard: WARNING — could not restrict {} permissions: {}. \
 Manually run: chmod 600 {}",
-                    sentinel_path.display(), e, sentinel_path.display()
+                    sentinel_path.display(),
+                    e,
+                    sentinel_path.display()
                 );
             }
         }
@@ -176,14 +179,15 @@ Manually run: chmod 600 {}",
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        if let Err(e) = std::fs::set_permissions(
-            &fingerprint_path,
-            std::fs::Permissions::from_mode(0o600),
-        ) {
+        if let Err(e) =
+            std::fs::set_permissions(&fingerprint_path, std::fs::Permissions::from_mode(0o600))
+        {
             eprintln!(
                 "kiteguard: WARNING — could not restrict {} permissions: {}. \
 Manually run: chmod 600 {}",
-                fingerprint_path.display(), e, fingerprint_path.display()
+                fingerprint_path.display(),
+                e,
+                fingerprint_path.display()
             );
         }
     }
