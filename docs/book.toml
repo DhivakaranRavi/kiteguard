@@ -11,6 +11,7 @@ git-repository-url = "https://github.com/DhivakaranRavi/kiteguard"
 git-repository-icon = "fa-github"
 edit-url-template = "https://github.com/DhivakaranRavi/kiteguard/edit/main/docs/src/{path}"
 additional-css    = ["custom.css"]
+additional-js     = ["theme-force.js"]
 no-section-label  = false
 default-theme     = "light"
 preferred-dark-theme = "light"
