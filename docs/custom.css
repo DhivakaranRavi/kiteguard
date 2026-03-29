@@ -1,369 +1,182 @@
-/* ── kiteguard docs — retro CRT terminal theme ────────────────────────────── */
+/* ── kiteguard docs — light retro terminal theme (matches console) ─────────── */
 
 @import url('https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap');
 
-/* ── Palette ──────────────────────────────────────────────────────────────── */
+/* ── Palette (mirrors console tailwind.config.js retro.*) ─────────────────── */
 :root {
-    --kg-green:  #00ff41;
-    --kg-amber:  #ffb000;
-    --kg-red:    #ff3131;
-    --kg-cyan:   #00ffff;
-    --kg-bg:     #050a05;
-    --kg-panel:  #080e08;
-    --kg-border: #1a3a1a;
-    --kg-dim:    #4a7c4a;
-    --kg-glow:   rgba(0, 255, 65, 0.15);
-
-    --sidebar-width:      270px;
-    --content-max-width:  860px;
+    --kg-bg:         #f5f5f0;
+    --kg-panel:      #ffffff;
+    --kg-border:     #d4d4c8;
+    --kg-green:      #0a6e0a;
+    --kg-green-mid:  #2d8c2d;
+    --kg-green-dim:  #edf7ed;
+    --kg-amber:      #7a4f00;
+    --kg-amber-dim:  #fdf6e3;
+    --kg-red:        #8a0f0f;
+    --kg-red-dim:    #fdf0f0;
+    --kg-cyan:       #005f7a;
+    --kg-text:       #1a1a1a;
+    --kg-dim:        #666650;
 }
 
-/* ── Override mdBook theme variables (all themes) ───────────────────────────── */
+/* ── Override mdBook theme variables ─────────────────────────────────────── */
 :root,
-body.light, body.rust, body.coal, body.navy, body.ayu {
-    --bg:                        #050a05 !important;
-    --fg:                        #00ff41 !important;
-    --sidebar-bg:                #030703 !important;
-    --sidebar-fg:                #00ff41 !important;
-    --sidebar-non-existant:      #4a7c4a !important;
-    --sidebar-active:            #ffb000 !important;
-    --sidebar-spacer:            #1a3a1a !important;
-    --scrollbar:                 #1a3a1a !important;
-    --icons:                     #4a7c4a !important;
-    --icons-hover:               #00ff41 !important;
-    --links:                     #00ffff !important;
-    --inline-code-color:         #ffb000 !important;
-    --theme-popup-bg:            #080e08 !important;
-    --theme-popup-border:        #1a3a1a !important;
-    --theme-hover:               rgba(0, 255, 65, 0.08) !important;
-    --quote-bg:                  rgba(0, 255, 65, 0.05) !important;
-    --quote-border:              #00ff41 !important;
-    --table-border-color:        #1a3a1a !important;
-    --table-header-bg:           rgba(0, 255, 65, 0.08) !important;
-    --table-alternate-bg:        rgba(0, 255, 65, 0.03) !important;
-    --searchbar-border-color:    #1a3a1a !important;
-    --searchbar-bg:              #080e08 !important;
-    --searchbar-fg:              #00ff41 !important;
-    --searchbar-shadow-color:    rgba(0, 255, 65, 0.15) !important;
-    --searchresults-header-fg:   #ffb000 !important;
-    --searchresults-border-color:#1a3a1a !important;
-    --searchresults-li-bg:       #080e08 !important;
-    --search-mark-bg:            rgba(255, 176, 0, 0.25) !important;
-    --color-scheme:              dark !important;
-    --warning-border:            #ff3131 !important;
-}
+body.light, body.rust, body./* ── kiteguard docs — light retro terminal theme (matches console) ────?g
+@import url('https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap');
 
-/* ── Global base ──────────────────────────────────────────────────────────── */
-html {
-    background: #050a05 !important;
-    color-scheme: dark;
-}
+/* ─?r-
+/* ── Palette (mirrors console tailwind.config.js retro.*) ───────────-si:root {
+    --kg-bg:         #f5f5f0;
+    --kg-panel:      #ffffff;
+    --kg-border:     #d4d4c8;
+    --kg-green:      #0a      -- #    --kg-panel:      # --icons    --kg-border:     #d4d4c88     --kg-green:      #0a6e0ar:    --kg-green-mid:  #2d8c2drt    --kg-green-dim:  #edf7ed      --kg-amber:      #7a4f00      --kg-amber-dim:  #fdf6        --kg-red:        #8a0f0fhe    --kg-red-dim:    #fdf0f0ff    --kg-cyan:       #005f7opu    --kg-text:       #1a1a1apo    --kg-dim:        #666650  }
 
-body {
-    background: #050a05 !important;
-    color: #00ff41 !important;
-    font-family: 'Share Tech Mono', monospace !important;
-}
+/* ── Override mdBook;
+   :root,
+body.light, body.rust, body./* ── kiteguard docs — light retro terminal theme (matches console) ────?g
+@import url('https://fonts.googleapi-tbody.he@import url('https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap');
 
-/* CRT scanline overlay */
-body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0, 0, 0, 0.08) 2px,
-        rgba(0, 0, 0, 0.08) 4px
-    );
-    pointer-events: none;
-    z-index: 9999;
-}
+/* ─?r-
+/* ?l
+/* ─?r-
+/* ── Palette (mirrors console tailwind.config.js retro.*) ───────g:                 --kg-bg:         #f5f5f0;
+    --kg-panel:      #ffffff;
+    --kg10, 0.15) !important;
+    --searchresul    --kg-panel:      #ffffffor    --kg-border:     #d4d4c8rd    --kg-green:      #0a    
+ 
+/* ── Override mdBook;
+   :root,
+body.light, body.rust, body./* ── kiteguard docs — light retro terminal theme (matches console) ────?g
+@import url('https://fonts.googleapi-tbody.he@import url('https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap');
 
-/* ── Typography ───────────────────────────────────────────────────────────── */
-.content main {
-    font-family: 'Share Tech Mono', monospace !important;
-    color: #00ff41 !important;
-}
-
-h1, h2, h3, h4, h5, h6 {
-    font-family: 'VT323', monospace !important;
-    color: #ffb000 !important;
-    text-shadow: 0 0 12px rgba(255, 176, 0, 0.4) !important;
-    letter-spacing: 0.05em;
-}
-
-.content h1 {
-    font-size: 2.4rem !important;
-    border-bottom: 1px solid #1a3a1a !important;
-    padding-bottom: 0.3em !important;
-    color: #00ff41 !important;
-    text-shadow: 0 0 16px rgba(0, 255, 65, 0.5) !important;
-}
-
-.content h2 {
-    font-size: 1.8rem !important;
-    border-bottom: 1px solid #1a3a1a !important;
-    padding-bottom: 0.2em !important;
-}
-
-.content h3 { font-size: 1.4rem !important; color: #00ffff !important; text-shadow: 0 0 10px rgba(0, 255, 255, 0.3) !important; }
-
-a, a:visited {
-    color: #00ffff !important;
-    text-decoration: none !important;
-    border-bottom: 1px dotted rgba(0, 255, 255, 0.3);
-    transition: color 0.15s, text-shadow 0.15s;
-}
-
-a:hover {
-    color: #00ff41 !important;
-    text-shadow: 0 0 8px rgba(0, 255, 65, 0.6);
-    border-bottom-color: #00ff41;
-}
-
-/* ── Sidebar ──────────────────────────────────────────────────────────────── */
-.sidebar {
-    background: #030703 !important;
-    border-right: 1px solid #1a3a1a !important;
-    font-family: 'Share Tech Mono', monospace !important;
-}
-
-.sidebar .sidebar-scrollbox {
-    background: #030703 !important;
-}
-
-.sidebar a {
-    color: #4a7c4a !important;
-    border-bottom: none !important;
-    transition: color 0.15s;
-}
-
-.sidebar a:hover {
-    color: #00ff41 !important;
-    text-shadow: 0 0 6px rgba(0, 255, 65, 0.5);
-}
-
-.sidebar .active > a {
-    color: #ffb000 !important;
-    text-shadow: 0 0 8px rgba(255, 176, 0, 0.4) !important;
-    font-weight: normal !important;
-}
-
-.sidebar-title, .sidebar .sidebar-title span {
-    color: #00ff41 !important;
-    font-family: 'VT323', monospace !important;
-    font-size: 1.3rem !important;
-    letter-spacing: 0.1em !important;
-    text-shadow: 0 0 10px rgba(0, 255, 65, 0.4) !important;
-}
-
-/* ── Top menu bar ─────────────────────────────────────────────────────────── */
-#menu-bar, .menu-bar {
-    background: #030703 !important;
-    border-bottom: 1px solid #1a3a1a !important;
+/* ─?r-
+/* ?l
+/* ─?r-
+/* ── Palette (mirrors console tailwind.config.js retro.*)???  :root,
+body.light, bod??ody.ligml@import url('https://fonts.googleapi-tbody.he@import url('https://fonts.googleapis.com/css2?family=VT323&family=Sharlo
+/* ─?r-
+/* ?l
+/* ─?r-
+/* ── Palette (mirrors console tailwind.config.js retro.*) ───────g:                 --kg-bgypo/* ?l
+/* ?* └?/* ── ??    --kg-panel:      #ffffff;
+    --kg10, 0.15) !important;
+    --searchresul    --kg-panel:      #ffffffor    --kg-border:    ??    --kg10, 0.15) !important*/    --searchresul    --kg-pami 
+/* ── Override mdBook;
+   :root,
+body.light, body.rust, body./* ── kiteguard docs — light re, h4   :root,
+body.light, body: 'VT323', @import url('https://fonts.googleapi-tbody.he@import url('https://fonts.googleapis.com/css2?family=VT323&family=Sharre
+/* ─?r-
+/* ?l
+/* ─?r-
+/* ── Palette (mirrors console tailwind.config.js retro.*)???  :root,
+body.light, bod??ody.ligml@import t h/* ?l
+/* nt/* ? /* ── rtbody.light, bod??ody.ligml@import url('https://fonts.googleapi-tbody.he@ 0/* ─?r-
+/* ?l
+/* ─?r-
+/* ── Palette (mirrors console tailwind.config.js retro.*) ───────g:                 --kg-bgypo, /* ?l
+/* 5, .conte/* ─?   /* ?* └?/* ── ??    --kg-panel:      #ffffff;
+    --kg10, 0.15) !important;
+    --searchresul    --kg-panel:  bo    --kg10, 0.15) !important;
+    --searchresul    -ra    --searchresul    --kg-paov/* ── Override mdBook;
+   :root,
+body.light, body.rust, body./* ── kiteguard docs — light re, h4   :root,
+body.light, ba1   :root,
+body.light, bod
+ body.lig: body.light, body: 'VT323', @import url('https://fonts.googleapi-tbody.he@impo00/* ─?r-
+/* ?l
+/* ─?r-
+/* ── Palette (mirrors console tailwind.config.js retro.*)???  :root,
+body.light, bod??ody.ligml@import t h?────?* ??/* ── ?ody.light, bod??ody.ligml@import t h/* ?l
+/* nt/* ? /* ── rtbodynd/* nt/* ? /* ── rtbody.light, bod??o s/* ?l
+/* ─?r-
+/* ── Palette (mirrors console tailwind.config.js retro.*) ───────g:    lbox {
+  /* ── nd/* 5, .conte/* ─?   /* ?* └?/* ── ??    --kg-panel:      #ffffff;
+    --kg10, 0.15) !important;
+    --search c    --kg10, 0.15) !important;
+    --searchresul    --kg-panel:  bo    --kg10 .    --searchresul    --kg-paf0    --searchresul    -ra    --searchresul    --kg-paov/* ── ba   :root,
+body.light, body.rust, body./* ── kiteguard docs — light re, h4────body.light, ba1   :root,
+body.light, bod
+ body.lig: body.light, body: 'VT323'??ody.light, bod
+ body.l-t body.lig: boddi/* ?l
+/* ─?r-
+/* ── Palette (mirrors console tailwind.config.js retro.*)???  :root,
+body.l!i/* ?n/* ── ebbody.light, bod??ody.ligml@import t h?────?* ??/* ── ?o
+ /* nt/* ? /* ── rtbodynd/* nt/* ? /* ?teguard-logo.png') no-repeat center / contain;
+    margin: 0 auto 0.5/* ─?r-
+/* ── Palette (mirrors console tailwind.config.js retro.*) ─? /* ── ??  /* ── nd/* 5, .conte/* ─?   /* ?* └?/* ── ??    --kg-panel:      #ffffff;
+   ??   --kg10, 0.15) !important;
+    --search c    --kg10, 0.15) !important;
+    --searchresume    --search c    --kg10, 0.ff    --searchresul    --kg-panel:  bo    --d body.light, body.rust, body./* ── kiteguard da(0, 0, 0, 0.06) !important;
 }
 
 #menu-bar i, .menu-bar i,
-#menu-bar .icon-button, .menu-bar .icon-button {
-    color: #4a7c4a !important;
-}
+#menu-bar .icon-button, .menu-bar .icon-button body.light, bod
+ body.lig: body.light, body: 'VT323'??ody.light, bod
+ body.l-t body.lig: boddi/* ?l
+/*or body.lig: bodor body.l-t body.lig: boddi/* ?l
+/* ─?r-
+/* ─??/* ─?r-
+/* ── Palette ??* ── ??ody.l!i/* ?n/* ── ebbody.light, bod??ody.ligml@import t h?──? /* nt/* ? /* ── rtbodynd/* nt/* ? /* ?teguard-logo.png') no-repeat center / contain;
+    er    margin: 0 auto 0.5/* ─?r-
+/* ── Palette (mirrors console tailwind.config.js retroiu/* ── Palette (mirrors consow:   ??   --kg10, 0.15) !important;
+    --search c    --kg10, 0.15) !important;
+    --searchresume    --search c    --kg10, 0.ff    --searchresul    --kg-panel:  bo    --d bw'    --search c    --kg10, 0.15) !si    --searchresume    --sea background: tran}
 
-#menu-bar .icon-button:hover, .menu-bar .icon-button:hover {
-    color: #00ff41 !important;
-}
-
-/* ── Code blocks ──────────────────────────────────────────────────────────── */
-pre, pre.hljs {
-    background: #080e08 !important;
-    border: 1px solid #1a3a1a !important;
-    border-radius: 0 !important;
-    box-shadow: 0 0 12px rgba(0, 255, 65, 0.06), inset 0 0 30px rgba(0, 0, 0, 0.4) !important;
-    position: relative;
-}
-
-pre code {
-    color: #00ff41 !important;
-    font-family: 'Share Tech Mono', monospace !important;
-    font-size: 0.9rem !important;
-}
-
-/* Inline code */
-code {
-    background: rgba(0, 255, 65, 0.07) !important;
-    color: #ffb000 !important;
-    font-family: 'Share Tech Mono', monospace !important;
-    border: 1px solid rgba(0, 255, 65, 0.15) !important;
-    border-radius: 2px !important;
-    padding: 0.1em 0.3em !important;
-}
-
-pre code {
-    background: transparent !important;
-    border: none !important;
-    color: #00ff41 !important;
-    padding: 0 !important;
-}
-
-/* Syntax highlight overrides */
-.hljs-keyword, .hljs-selector-tag  { color: #ff3131 !important; }
-.hljs-string, .hljs-attr           { color: #ffb000 !important; }
-.hljs-comment                       { color: #4a7c4a !important; font-style: italic; }
-.hljs-number, .hljs-literal         { color: #00ffff !important; }
-.hljs-type, .hljs-title             { color: #ffb000 !important; }
-.hljs-built_in                      { color: #00ff41 !important; }
-
-/* Copy button */
-.copy-button {
-    color: #4a7c4a !important;
-    background: transparent !important;
-    border: 1px solid #1a3a1a !important;
-}
-.copy-button:hover { color: #00ff41 !important; border-color: #00ff41 !important; }
-
-/* ── Tables ───────────────────────────────────────────────────────────────── */
-table {
-    border-collapse: collapse !important;
-    border: 1px solid #1a3a1a !important;
-    width: 100%;
-}
-
-table th {
-    background: rgba(0, 255, 65, 0.08) !important;
-    color: #ffb000 !important;
-    font-family: 'VT323', monospace !important;
-    font-size: 1.05rem !important;
-    letter-spacing: 0.08em !important;
-    border: 1px solid #1a3a1a !important;
-    padding: 0.5em 0.8em !important;
-}
-
-table td {
-    border: 1px solid #1a3a1a !important;
-    color: #00ff41 !important;
-    padding: 0.4em 0.8em !important;
-}
-
-table tbody tr:nth-child(even) {
-    background: rgba(0, 255, 65, 0.03) !important;
-}
-
-table tbody tr:hover {
-    background: rgba(0, 255, 65, 0.07) !important;
-}
-
-/* ── Blockquotes ──────────────────────────────────────────────────────────── */
-blockquote {
-    border-left: 3px solid #00ff41 !important;
-    background: rgba(0, 255, 65, 0.04) !important;
-    color: #4a7c4a !important;
-    border-radius: 0 !important;
-    padding: 0.75em 1em !important;
-    margin: 1em 0 !important;
-    font-style: normal !important;
-}
-
-blockquote strong:first-child {
-    color: #ffb000 !important;
-}
-
-/* ── Search ───────────────────────────────────────────────────────────────── */
-#searchbar {
-    background: #080e08 !important;
-    color: #00ff41 !important;
-    border: 1px solid #1a3a1a !important;
-    border-radius: 0 !important;
-    font-family: 'Share Tech Mono', monospace !important;
-}
-
-#searchbar:focus {
-    border-color: #00ff41 !important;
-    box-shadow: 0 0 8px rgba(0, 255, 65, 0.3) !important;
-    outline: none !important;
-}
-
-#searchresults a {
-    color: #00ffff !important;
-}
-
-#searchresults .searchresults-header {
-    color: #ffb000 !important;
-    font-family: 'VT323', monospace !important;
-}
-
-mark {
-    background: rgba(255, 176, 0, 0.25) !important;
-    color: #ffb000 !important;
-}
-
-/* ── Scrollbars ───────────────────────────────────────────────────────────── */
-::-webkit-scrollbar             { width: 6px; height: 6px; }
-::-webkit-scrollbar-track       { background: #050a05; }
-::-webkit-scrollbar-thumb       { background: #1a3a1a; border-radius: 0; }
-::-webkit-scrollbar-thumb:hover { background: #00ff41; }
-
-/* ── Theme picker popup ───────────────────────────────────────────────────── */
-.theme-popup {
-    background: #080e08 !important;
-    border: 1px solid #1a3a1a !important;
-}
-
-.theme-popup .theme:hover {
-    background: rgba(0, 255, 65, 0.08) !important;
-    color: #00ff41 !important;
-}
-
-/* ── Chapter title in content ─────────────────────────────────────────────── */
-.chapter li.chapter-item a {
-    font-family: 'Share Tech Mono', monospace !important;
-}
-
-/* ── Footer ───────────────────────────────────────────────────────────────── */
-.content footer {
-    margin-top: 3em !important;
-    padding-top: 1em !important;
-    border-top: 1px solid #1a3a1a !important;
-    font-size: 0.85em !important;
-    color: #4a7c4a !important;
-}
-
-/* ── Nav arrows ───────────────────────────────────────────────────────────── */
-.nav-chapters a, .previous, .next {
-    color: #4a7c4a !important;
-    font-family: 'VT323', monospace !important;
-    font-size: 1.6rem !important;
+#menu-bar i, .menu-bar i,
+#menu-bar .icon-button, .menu-bar .icon-button body.light, bod
+ body.lig: body.light, body: 'VT323'??ody.light, bod
+ body.l-t body.lig: boant;
+#menu-bar .icon-button, rt body.lig: body.light, body: 'VT323'??ody.light, bod
+ body.lpa body.l-t body.lig: boddi/* ?l
+/*or body.lig: bodor  /*or body.lig: bodor body.l-t or/* ─?r-
+/* ─??/* ─?r-
+/* ── Palettng/* ─??.4/* ── Palette ??S    er    margin: 0 auto 0.5/* ─?r-
+/* ── Palette (mirrors console tailwind.config.js retroiu/* ── Palette (mirrors consow:   ??   --kg10, 0.15) !important;
+    --search c    --k           /* ── Palette (mirrors console taity    --search c    --kg10, 0.15) !important;
+    --searchresume    --search c    --kg10, 0.ff    --searchresul    --kg-panel:  boa4    --searchresume    --search c    --kg10t;
+#menu-bar i, .menu-bar i,
+#menu-bar .icon-button, .menu-bar .icon-button body.light, bod
+ body.lig: body.light, body: 'VT323'??ody.light, bod
+ body.l-t body.lig: boant;
+#me co#menu-bar .icon-button, 
+  body.lig: body.light, body: 'VT3;
+    border: 1px solid #d4d4c body.l-t body.lig: boant;
+#menu-bar .icon-button, re0#menu-bar .icon-button, rco body.lpa body.l-t body.lig: boddi/* ?l
+/*or body.lig: bodor  /*or body.lig: ?*or body.lig: bodor  /*or body.lig: bo??* ─??/* ─?r-
+/* ── Palettng/* ─??.4/* ── Pa??* ── Palettng/*?* ── Palette (mirrors console tailwind.config.js retroiu/* ── Palette (mirrors coer    --search c    --k           /* ── Palette (mirrors console taity    --search c    --kg10, 0.15) !important;
+    --searchta    --searchresume    --search c    --kg10, 0.ff    --searchresul    --kg-panel:  boa4    --searchresume    --seart;#menu-bar i, .menu-bar i,
+#menu-bar .icon-button, .menu-bar .icon-button body.light, bod
+ body.lig: body.light, body: 'VT323'??od #menu-bar .icon-button, #d body.lig: body.light, body: 'VT323'??ody.light, bod
+ body.l 0 body.l-t body.lig: boant;
+#me co#menu-bar .icon-butve#me co#menu-bar .icon-but9f  body.lig: body.light, body:tr    border: 1px solid #d4d4c bod !im#menu-bar .icon-button, re0#menu-bar .icon-button, rc??/*or body.lig: bodor  /*or body.lig: ?*or body.lig: bodor  /*or body.lig: bo??* ─??/* ?* ── Palettng/* ─??.4/* ── Pa??* ── Palettng/*?* ── Palette (mirrors consoleol    --searchta    --searchresume    --search c    --kg10, 0.ff    --searchresul    --kg-panel:  boa4    --searchresume    --seart;#menu-bar i, .menu-bar i,
+#menu-bar .icon-button, .menu-bar .icon-button body.light, bod
+ body.lig: body.light, body: 'VT323'??od #menu-bar . c#menu-bar .icon-button, .menu-bar .icon-button body.light, bod
+ body.lig: body.light, body: 'VT323'??od #menu-bar .icon-button, #d body.lig: body.light, ??body.lig: body.light, body: 'VT323'??od #menu-bar .icon-?─?body.l 0 body.l-t body.lig: boant;
+#me co#menu-bar .icon-butve#me co#menu-bar .icon-but9f  body.lig: body.light, body:t#s#me co#menu-bar .icon-butve#me co# !#menu-bar .icon-button, .menu-bar .icon-button body.light, bod
+ body.lig: body.light, body: 'VT323'??od #menu-bar . c#menu-bar .icon-button, .menu-bar .icon-button body.light, bod
+ body.lig: body.light, body: 'VT323'??od #menu-bar .icon-button, #d body.lig: body.light, ??body.lig: body.light, body: 'VT323'??od #menu-bar .icon-?─?body.l 0 body.l-t body.lig: boant;
+#me co#menu-bar .icon-butve#me co#menu-bar .icon-but9f  body.lig: body.light, body:t#s#me co#menu-bar .icon-butve#me co# !#menu-bar .icon-button, .menu-baim body.lig: body.light, body: 'VT323'??od #menu-bar . c#menu-po body.lig: body.light, body: 'VT323'??od #menu-bar .icon-button, #d body.lig: body.light, ??body.lig: body.light, ?me co#menu-bar .icon-butve#me co#menu-bar .icon-but9f  body.lig: body.light, body:t#s#me co#menu-bar .icon-butve#me co# !#menu-bar .icon-button, .menu-bar .icon-button body.lighht: 6px; }
+::- body.lig: body.light, body: 'VT323'??od #menu-bar . c#menu-bar .icon-button, .menu-bar .icon-button body.light, bod
+ body.lig: body.light, body: 'VT323'??od #menu-bar .icon-button,a; body.lig: body.light, body: 'VT323'??od #menu-bar .icon-button, #d body.lig: body.light, ??body.lig: body.light, ??me co#menu-bar .icon-butve#me co#menu-bar .icon-but9f  body.lig: body.light, body:t#s#me co#menu-bar .icon-butve#me co# !#menu-bar .icon-button, .menu-baim body.lig: body.light, body: 'VT328p::- body.lig: body.light, body: 'VT323'??od #menu-bar . c#menu-bar .icon-button, .menu-bar .icon-button body.light, bod
+ body.lig: body.light, body: 'VT323'??od #menu-bar .icon-button,a; body.lig: body.light, body: 'VT323'??od #menu-bar .icon-button, #d body.lig: body.light, ??body.lig: body.light, ??me co#menu-bar .icon-butve#me co#menu-bar .icon-but9f  body.lig: body.light, body:t#s#me co#menu-bar .icon-butve#me co# !#menu-bar .icon-button, .menu-baim body.lig: body.light, body: 'VT328p::- body.lig: body.l?──?body.lig: body.light, body: 'VT323'??od #menu-bar .icon-button,a; body.lig: body.light, body: 'VT323'??od #menu-bar ?body.lig: body.light, body: 'VT323'??od #menu-bar .icon-button,a; body.lig: body.light, body: 'VT323'??od #menu-bar .icon-button, #d body.lig: body.light, ??body.lig: body.light, ??me co#menu-bar .icon-butve#me co#menu-bar .icon-but9f  body.lig: body.light, body:t#s#me co#menu-bar .icon-butve#me co# !#menu-bar .icon-button, .menu-baim body.lig: body.light, body: 'VT328p::- body.lig: body.l?──?body.lig: body.light, body: 'VT323'??od #menu-bar .icon-button,a; body.lig: body.light, bfont-family: 'VT323', monospace !important;
+    font-size: 1.8rem !important;
     transition: color 0.15s;
 }
 
 .nav-chapters a:hover, .previous:hover, .next:hover {
-    color: #00ff41 !important;
-    text-shadow: 0 0 8px rgba(0, 255, 65, 0.5);
+    color: #0a6e0a !important;
     border-bottom: none !important;
 }
 
-/* ── Selection ────────────────────────────────────────────────────────────── */
+/* ── Selection ───────────────────────────────────────────────────────────── */
 ::selection {
-    background: rgba(0, 255, 65, 0.25);
-    color: #00ff41;
+    background: rgba(10, 110, 10, 0.18);
+    color: #1a1a1a;
 }
 
-/* ── Sidebar logo ─────────────────────────────────────────────────────────── */
-.sidebar-title {
-    padding-top: 1rem !important;
-}
-
-.sidebar-title::before {
-    content: '';
-    display: block;
-    width: 120px;
-    height: 60px;
-    background: url('assets/kiteguard-logo-white.png') no-repeat center / contain;
-    margin: 0 auto 0.5rem auto;
-    filter: drop-shadow(0 0 8px rgba(0, 255, 65, 0.4));
-}
-
-/* Hide the text title since the logo already has the wordmark */
-.sidebar-title span {
-    display: none !important;
+/* ── Horizontal rules ────────────────────────────────────────────────────── */
+hr {
+    border: none !important;
+    border-top: 1px solid #d4d4c8 !important;
+    margin: 2em 0 !important;
 }
