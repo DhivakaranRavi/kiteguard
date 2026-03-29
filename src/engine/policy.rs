@@ -171,12 +171,13 @@ pub fn load() -> Result<Policy> {
     };
 
     // Validate user-supplied bash patterns are compilable regexes.
-    // Reject the entire policy rather than silently skipping broken patterns —
-    // a typo in a protection rule could leave a gap the admin thinks is covered.
+    // Important: validate with the (?i) prefix that commands.rs wraps them in,
+    // so that inline-flag interactions (e.g. (?-i:...)) are caught here at load
+    // time rather than silently failing in the hot path cache.
     for pattern in &policy.bash.block_patterns {
-        regex::Regex::new(pattern).map_err(|e| {
+        regex::Regex::new(&format!("(?i){}", pattern)).map_err(|e| {
             format!(
-                "Invalid regex in rules.json bash.block_patterns: {:?}: {}",
+                "Invalid regex in rules.json bash.block_patterns (with (?i) prefix): {:?}: {}",
                 pattern, e
             )
         })?;

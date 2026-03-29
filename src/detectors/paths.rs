@@ -31,11 +31,14 @@ fn matches_any(path: &str, patterns: &[String]) -> bool {
     let expanded = expand_home(path);
 
     // Canonicalize to resolve symlinks so `~/.kiteguard/link -> /etc/passwd`
-    // doesn't bypass the `/etc/**` block. If the path doesn't exist yet
-    // (e.g. a write target), fall back to the expanded string form.
-    let canonical = std::fs::canonicalize(&expanded)
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|_| expanded.clone());
+    // doesn't bypass the `/etc/**` block.
+    //
+    // For non-existent paths (e.g. a new write target) `canonicalize` returns
+    // ENOENT and the fallback would skip symlink resolution on the PARENT dirs,
+    // enabling a bypass: symlink /tmp/safe -> /etc, then write /tmp/safe/cron.d/x.
+    // Fix: for non-existent paths, canonicalize the deepest existing ancestor
+    // and re-attach the remaining components.
+    let canonical = canonicalize_best_effort(&expanded);
 
     for pattern in patterns {
         let expanded_pattern = expand_home(pattern);
@@ -45,6 +48,54 @@ fn matches_any(path: &str, patterns: &[String]) -> bool {
         }
     }
     false
+}
+
+/// Canonicalize a path, resolving as many symlinks as possible even when the
+/// final component (or several trailing components) do not yet exist.
+///
+/// Algorithm: walk up from the full path until we find an ancestor that exists,
+/// canonicalize that ancestor, then re-attach the remaining components.
+/// This prevents symlink bypass via intermediate directory symlinks on write paths.
+fn canonicalize_best_effort(path: &str) -> String {
+    use std::path::{Component, Path, PathBuf};
+    let p = Path::new(path);
+
+    // Fast path: path exists → full canonicalization.
+    if let Ok(c) = std::fs::canonicalize(p) {
+        return c.to_string_lossy().to_string();
+    }
+
+    // Walk up until we find an existing ancestor.
+    let mut ancestor = PathBuf::from(p);
+    let mut suffix: Vec<std::ffi::OsString> = Vec::new();
+
+    loop {
+        if let Ok(c) = std::fs::canonicalize(&ancestor) {
+            // Re-attach the missing suffix.
+            let mut result = c;
+            for part in suffix.iter().rev() {
+                result.push(part);
+            }
+            return result.to_string_lossy().to_string();
+        }
+        // Nothing useful — pop the last component.
+        match ancestor.file_name() {
+            Some(name) => {
+                suffix.push(name.to_os_string());
+                ancestor.pop();
+            }
+            None => break,
+        }
+        // Stop at filesystem root.
+        if ancestor.components().count() == 0
+            || ancestor.components().all(|c| matches!(c, Component::RootDir))
+        {
+            break;
+        }
+    }
+
+    // Absolute fallback: return original expanded path.
+    path.to_string()
 }
 
 fn expand_home(path: &str) -> String {

@@ -29,6 +29,25 @@ pub fn handle(input: &str, policy: &Policy) -> Result<Verdict> {
                 .unwrap_or("");
             evaluator::evaluate_file_write(path, policy)
         }
+        // MultiEdit edits multiple files in a single call — check every path.
+        "MultiEdit" => {
+            let edits = payload.tool_input["edits"].as_array();
+            let mut v = Verdict::Allow;
+            if let Some(edits) = edits {
+                for edit in edits {
+                    let path = edit["file_path"]
+                        .as_str()
+                        .or_else(|| edit["path"].as_str())
+                        .unwrap_or("");
+                    let result = evaluator::evaluate_file_write(path, policy);
+                    if matches!(result, Verdict::Block { .. }) {
+                        v = result;
+                        break;
+                    }
+                }
+            }
+            v
+        }
         "Read" => {
             let path = payload.tool_input["file_path"]
                 .as_str()

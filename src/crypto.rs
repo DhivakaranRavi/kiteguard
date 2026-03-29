@@ -39,6 +39,11 @@ pub fn hex_to_bytes(hex: &str) -> Option<Vec<u8>> {
     if !hex.len().is_multiple_of(2) {
         return None;
     }
+    // Reject non-ASCII input before any byte-indexing to prevent a panic when
+    // a multi-byte UTF-8 char lands on an even byte boundary (L2 audit finding).
+    if !hex.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return None;
+    }
     (0..hex.len())
         .step_by(2)
         .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).ok())
@@ -46,13 +51,20 @@ pub fn hex_to_bytes(hex: &str) -> Option<Vec<u8>> {
 }
 
 /// Constant-time byte equality — prevents timing oracles in HMAC verification.
+/// Both the length check and the XOR loop run in constant time relative to
+/// the longer of the two inputs, eliminating the timing difference between
+/// "wrong length" and "correct length, wrong value".
 fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
+    // Process bytes up to the longer length so the loop duration is independent
+    // of where the inputs diverge or how long each actually is.
+    let max_len = a.len().max(b.len());
     let mut diff = 0u8;
-    for (x, y) in a.iter().zip(b.iter()) {
+    for i in 0..max_len {
+        let x = if i < a.len() { a[i] } else { 0 };
+        let y = if i < b.len() { b[i] } else { 0 };
         diff |= x ^ y;
     }
+    // Also encode length mismatch so equal-content different-length slices fail.
+    diff |= (a.len() != b.len()) as u8;
     diff == 0
 }

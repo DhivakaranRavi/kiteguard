@@ -142,6 +142,7 @@ async fn stats_handler() -> Response {
 
         match verdict {
             "block" => blocks += 1,
+            "redact" => blocks += 1, // redact is a security action; count with blocks
             _ => allows += 1,
         }
 
@@ -156,8 +157,11 @@ async fn stats_handler() -> Response {
         }
 
         // Hourly bucket from ts "YYYY-MM-DDTHH:MM:SSZ"
-        if ts.len() >= 13 {
-            let hour_key = format!("{}:00", &ts[11..13]);
+        // Use char-based iteration instead of byte slice to avoid panicking on
+        // non-ASCII timestamps in crafted audit log entries (L6 audit finding).
+        let ts_chars: Vec<char> = ts.chars().collect();
+        if ts_chars.len() >= 13 {
+            let hour_key = format!("{}{}:00", ts_chars[11], ts_chars[12]);
             *hourly.entry(hour_key).or_insert(0) += 1;
         }
     }
@@ -310,9 +314,11 @@ async fn security_headers(req: Request, next: Next) -> Response {
     );
     h.insert(
         header::HeaderName::from_static("content-security-policy"),
+        // 'unsafe-inline' removed from script-src — Vite's production build
+        // emits external .js files only, no inline scripts.
         HeaderValue::from_static(
             "default-src 'self'; style-src 'self' 'unsafe-inline'; \
-             script-src 'self' 'unsafe-inline'; img-src 'self' data:",
+             script-src 'self'; img-src 'self' data:",
         ),
     );
     res

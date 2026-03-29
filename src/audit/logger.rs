@@ -2,6 +2,12 @@ use crate::engine::verdict::Verdict;
 use crate::error::Result;
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::sync::Mutex;
+
+// Serializes concurrent log writes within a single process.
+// Prevents two simultaneous hook invocations (e.g. PostToolUse racing with Stop)
+// from reading the same prev_hash and producing a broken chain link (L5).
+static LOG_MUTEX: Mutex<()> = Mutex::new(());
 
 /// Rotate when the log exceeds 10 MB; keep up to 3 rotated files.
 const MAX_LOG_SIZE: u64 = 10 * 1024 * 1024;
@@ -38,6 +44,11 @@ Audit log may be readable by other local users.",
     }
 
     let log_path = log_dir.join("audit.log");
+
+    // Serialize all writes within the process to maintain the hash chain.
+    // Without this lock, two concurrent hook invocations read the same prev_hash
+    // and produce duplicate chain links, breaking 'kiteguard audit verify'.
+    let _lock = LOG_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
 
     maybe_rotate(&log_path)?;
 
@@ -100,6 +111,11 @@ Audit log may be readable by other local users.",
     }
 
     writeln!(file, "{}", entry)?;
+
+    // Update the O(1) sidecar so the next invocation skips the full-file read.
+    let sidecar = log_path.with_extension("log.tail");
+    let _ = fs::write(&sidecar, &entry);
+
     Ok(())
 }
 
@@ -109,8 +125,19 @@ fn log_dir() -> std::path::PathBuf {
 
 /// Reads the `hash` field from the last line of the log.
 /// Returns 64 zeros for the genesis entry (no predecessor).
+/// Uses a sidecar file `audit.log.tail` when present to avoid O(n) reads.
 fn read_last_hash(log_path: &std::path::Path) -> String {
     let zeros = "0".repeat(64);
+    // Fast path: read the sidecar file (written on every append).
+    let sidecar = log_path.with_extension("log.tail");
+    if let Ok(s) = fs::read_to_string(&sidecar) {
+        if let Ok(entry) = serde_json::from_str::<serde_json::Value>(s.trim()) {
+            if let Some(h) = entry["hash"].as_str() {
+                return h.to_string();
+            }
+        }
+    }
+    // Slow path: sidecar missing → read full log (legacy or first run).
     let content = match fs::read_to_string(log_path) {
         Ok(s) => s,
         Err(_) => return zeros,
@@ -125,7 +152,6 @@ fn read_last_hash(log_path: &std::path::Path) -> String {
         }
     }
     // The last entry is malformed or missing the hash field — chain reset.
-    // Warn loudly so the operator knows to investigate.
     eprintln!(
         "kiteguard: WARNING — last audit log entry is malformed or missing 'hash' field; \
 hash chain reset to genesis. Run 'kiteguard audit verify' to check log integrity."
@@ -135,7 +161,17 @@ hash chain reset to genesis. Run 'kiteguard audit verify' to check log integrity
 
 /// Reads the `seq` field from the last line of the log.
 /// Returns 0 if the file is empty, missing, or has no seq field (legacy entries).
+/// Uses the same sidecar file as `read_last_hash` for O(1) access.
 fn read_last_seq(log_path: &std::path::Path) -> u64 {
+    let sidecar = log_path.with_extension("log.tail");
+    if let Ok(s) = fs::read_to_string(&sidecar) {
+        if let Ok(entry) = serde_json::from_str::<serde_json::Value>(s.trim()) {
+            if let Some(n) = entry["seq"].as_u64() {
+                return n;
+            }
+        }
+    }
+    // Slow path.
     let content = match fs::read_to_string(log_path) {
         Ok(s) => s,
         Err(_) => return 0,
@@ -201,7 +237,15 @@ mod identity {
                 return h;
             }
         }
-        std::process::Command::new("hostname")
+        // Use absolute path to avoid PATH-hijacking attacks.
+        // On macOS the binary is /bin/hostname; on Linux /usr/bin/hostname.
+        let hostname_bin = if std::path::Path::new("/bin/hostname").exists() {
+            "/bin/hostname"
+        } else {
+            "/usr/bin/hostname"
+        };
+        std::process::Command::new(hostname_bin)
+            .env("PATH", "/usr/bin:/bin")
             .output()
             .ok()
             .filter(|o| o.status.success())
@@ -212,7 +256,16 @@ mod identity {
 
     /// Git repo root of the current working directory (best-effort).
     pub fn repo() -> String {
-        std::process::Command::new("git")
+        // Use absolute path to avoid PATH-hijacking; sanitize PATH for subprocess.
+        let git_bin = if std::path::Path::new("/usr/bin/git").exists() {
+            "/usr/bin/git"
+        } else if std::path::Path::new("/usr/local/bin/git").exists() {
+            "/usr/local/bin/git"
+        } else {
+            "git" // last resort — PATH-relative, but git not critical for security
+        };
+        std::process::Command::new(git_bin)
+            .env("PATH", "/usr/bin:/bin:/usr/local/bin")
             .args(["rev-parse", "--show-toplevel"])
             .output()
             .ok()

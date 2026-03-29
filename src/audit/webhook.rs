@@ -56,9 +56,21 @@ pub fn is_ssrf_safe(url: &str) -> bool {
 
 /// Decode `%XX` sequences in a URL string so that percent-encoded private IPs
 /// (e.g. `127%2e0%2e0%2e1`) are caught by the hostname and IP checks.
-/// Only ASCII characters are relevant for hostnames; non-ASCII percent sequences
-/// are left as the decoded byte cast to char (safe for comparison purposes).
+/// Applied iteratively until idempotent to handle double-encoded inputs like
+/// `127%252e0%252e0%252e1` (%25 → %, then %2e → .).
 fn percent_decode_host(s: &str) -> String {
+    let mut current = s.to_string();
+    loop {
+        let decoded = percent_decode_once(&current);
+        if decoded == current {
+            break;
+        }
+        current = decoded;
+    }
+    current
+}
+
+fn percent_decode_once(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     let bytes = s.as_bytes();
     let mut i = 0;
@@ -290,9 +302,19 @@ sending event without authentication",
             if let Some(mut stdin) = child.stdin.take() {
                 use std::io::Write;
                 let safe_tok = sanitize_curl_header_value(tok);
-                let _ = stdin.write_all(
+                if let Err(e) = stdin.write_all(
                     format!("header = \"Authorization: Bearer {}\"\n", safe_tok).as_bytes(),
-                );
+                ) {
+                    // Broken pipe or other write error — kill the child so it
+                    // doesn't silently send an unauthenticated request.
+                    eprintln!(
+                        "kiteguard: WARNING — failed to write auth token to curl stdin: {}; \
+abort webhook send",
+                        e
+                    );
+                    let _ = child.kill();
+                    return Ok(());
+                }
                 // Drop stdin here to signal EOF so curl starts the request.
             }
         }
