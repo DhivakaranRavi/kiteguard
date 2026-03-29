@@ -347,3 +347,23 @@ mark {
     background: rgba(0, 255, 65, 0.25);
     color: #00ff41;
 }
+
+/* ── Sidebar logo ─────────────────────────────────────────────────────────── */
+.sidebar-title {
+    padding-top: 1rem !important;
+}
+
+.sidebar-title::before {
+    content: '';
+    display: block;
+    width: 120px;
+    height: 60px;
+    background: url('assets/kiteguard-logo-white.png') no-repeat center / contain;
+    margin: 0 auto 0.5rem auto;
+    filter: drop-shadow(0 0 8px rgba(0, 255, 65, 0.4));
+}
+
+/* Hide the text title since the logo already has the wordmark */
+.sidebar-title span {
+    display: none !important;
+}
