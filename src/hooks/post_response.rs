@@ -63,6 +63,29 @@ pub fn handle_agent_response(input: &str, policy: &Policy) -> Result<Verdict> {
     Ok(evaluator::evaluate_response(&payload.text, policy))
 }
 
+/// Extracts plain text from a Claude content value, handling both:
+/// - String: `"hello world"`
+/// - Block array: `[{"type":"text","text":"hello world"}, ...]`
+fn extract_text_content(content: &Value) -> String {
+    if let Some(s) = content.as_str() {
+        return s.to_string();
+    }
+    if let Some(blocks) = content.as_array() {
+        return blocks
+            .iter()
+            .filter_map(|block| {
+                if block["type"].as_str() == Some("text") {
+                    block["text"].as_str()
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+    }
+    String::new()
+}
+
 #[cfg(test)]
 mod cursor_tests {
     use super::*;
@@ -115,27 +138,4 @@ mod cursor_tests {
         let v = handle_agent_response(input, &policy()).unwrap();
         assert!(v.is_allow(), "empty response text should be allowed");
     }
-}
-
-/// Extracts plain text from a Claude content value, handling both:
-/// - String: `"hello world"`
-/// - Block array: `[{"type":"text","text":"hello world"}, ...]`
-fn extract_text_content(content: &Value) -> String {
-    if let Some(s) = content.as_str() {
-        return s.to_string();
-    }
-    if let Some(blocks) = content.as_array() {
-        return blocks
-            .iter()
-            .filter_map(|block| {
-                if block["type"].as_str() == Some("text") {
-                    block["text"].as_str()
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-    }
-    String::new()
 }

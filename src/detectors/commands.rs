@@ -57,10 +57,6 @@ fn cached_bash_regex(pattern: &str) -> Option<Regex> {
     re
 }
 
-pub(crate) fn is_redos_risky_pub(pattern: &str) -> bool {
-    is_redos_risky(pattern)
-}
-
 /// Scans a bash command against configured block patterns.
 pub fn scan(command: &str, patterns: &[String]) -> Option<Verdict> {
     // Truncate at a safe UTF-8 char boundary to avoid panicking when byte index
@@ -68,7 +64,13 @@ pub fn scan(command: &str, patterns: &[String]) -> Option<Verdict> {
     // payload with a 2-4 byte char at position 4096 panics the process (exit 101),
     // bypassing the fail-closed guard in main.rs.
     let safe_input = if command.len() > MAX_MATCH_LEN {
-        let boundary = command.floor_char_boundary(MAX_MATCH_LEN);
+        // Find the largest valid UTF-8 char boundary at or before MAX_MATCH_LEN.
+        // `str::floor_char_boundary` was stabilised in 1.91.0 which exceeds our
+        // MSRV of 1.75.0, so we implement the equivalent manually.
+        let mut boundary = MAX_MATCH_LEN;
+        while !command.is_char_boundary(boundary) {
+            boundary -= 1;
+        }
         &command[..boundary]
     } else {
         command
@@ -93,6 +95,10 @@ mod tests {
 
     fn pats(v: &[&str]) -> Vec<String> {
         v.iter().map(|s| s.to_string()).collect()
+    }
+
+    fn is_redos_risky_pub(pattern: &str) -> bool {
+        is_redos_risky(pattern)
     }
 
     // --- ReDoS detection ---

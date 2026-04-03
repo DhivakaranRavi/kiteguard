@@ -10,4 +10,3 @@ pub mod hooks;
 pub mod util;
 
 // cli and build.rs helpers are binary-only
-mod cli;

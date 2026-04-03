@@ -18,10 +18,7 @@ fn extract_host(url: &str) -> String {
         after_scheme
     };
     // Drop path / query / fragment
-    let host_and_port = authority
-        .split(|c| c == '/' || c == '?' || c == '#')
-        .next()
-        .unwrap_or(authority);
+    let host_and_port = authority.split(['/', '?', '#']).next().unwrap_or(authority);
     // Handle IPv6 bracketed addresses (e.g. "[::1]:8080")
     if host_and_port.starts_with('[') {
         return host_and_port
@@ -45,16 +42,15 @@ pub fn scan_prompt(prompt: &str, blocklist: &[String]) -> Option<Verdict> {
         prompt.split(|c: char| c.is_whitespace() || matches!(c, '"' | '\'' | '`' | ',' | '<' | '>'))
     {
         let token = token.trim_matches(|c: char| matches!(c, '.' | ')' | ']'));
-        if token.starts_with("http://")
+        if (token.starts_with("http://")
             || token.starts_with("https://")
-            || token.starts_with("ftp://")
+            || token.starts_with("ftp://"))
+            && scan(token, blocklist).is_some()
         {
-            if scan(token, blocklist).is_some() {
-                return Some(Verdict::block(
-                    "blocked_url_in_prompt",
-                    format!("Prompt references a blocked URL: `{}`", token),
-                ));
-            }
+            return Some(Verdict::block(
+                "blocked_url_in_prompt",
+                format!("Prompt references a blocked URL: `{}`", token),
+            ));
         }
     }
     None

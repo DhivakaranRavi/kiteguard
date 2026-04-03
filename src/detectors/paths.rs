@@ -18,13 +18,14 @@ pub fn scan_prompt(prompt: &str, block_read: &[String]) -> Option<Verdict> {
         prompt.split(|c: char| c.is_whitespace() || matches!(c, '"' | '\'' | '`' | ',' | ';'))
     {
         let token = token.trim_matches(|c: char| matches!(c, '.' | ','));
-        if (token.contains('/') || token.starts_with('~')) && !token.is_empty() {
-            if matches_any(token, block_read) {
-                return Some(Verdict::block(
-                    "blocked_path_in_prompt",
-                    format!("Prompt references a sensitive path: `{}`", token),
-                ));
-            }
+        if (token.contains('/') || token.starts_with('~'))
+            && !token.is_empty()
+            && matches_any(token, block_read)
+        {
+            return Some(Verdict::block(
+                "blocked_path_in_prompt",
+                format!("Prompt references a sensitive path: `{}`", token),
+            ));
         }
     }
     None
