@@ -23,7 +23,7 @@ pub struct Policy {
     pub remote_policy_url: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
 pub struct BashPolicy {
     #[serde(default = "default_true")]
     pub enabled: bool,
@@ -37,7 +37,7 @@ pub struct BashPolicy {
     pub block_on_error: bool,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
 pub struct FilePathPolicy {
     #[serde(default = "default_block_read_paths")]
     pub block_read: Vec<String>,
@@ -51,7 +51,7 @@ pub struct FilePathPolicy {
     pub allow_write: Vec<String>,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
 pub struct PiiPolicy {
     #[serde(default = "default_true")]
     pub block_in_prompt: bool,
@@ -63,7 +63,7 @@ pub struct PiiPolicy {
     pub types: Vec<String>,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
 pub struct UrlPolicy {
     #[serde(default = "default_blocked_domains")]
     pub blocklist: Vec<String>,
@@ -72,7 +72,7 @@ pub struct UrlPolicy {
     pub allowlist: Vec<String>,
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize)]
 pub struct InjectionPolicy {
     #[serde(default = "default_true")]
     pub enabled: bool,
@@ -87,6 +87,59 @@ pub struct WebhookConfig {
     /// an `X-KiteGuard-Signature: sha256=<hex>` header so receivers can verify
     /// authenticity. Supports `$ENV_VAR` indirection.
     pub hmac_secret: Option<String>,
+}
+
+// ── Manual Default impls ─────────────────────────────────────────────────────
+// These mirror every `#[serde(default = "...")]` annotation so that
+// `Policy::default()` (and sub-struct defaults triggered by `#[serde(default)]`
+// in the Policy struct) produce the same secure values as JSON deserialization.
+
+impl Default for BashPolicy {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            block_patterns: default_bash_patterns(),
+            allow_patterns: Vec::new(),
+            block_on_error: true,
+        }
+    }
+}
+
+impl Default for FilePathPolicy {
+    fn default() -> Self {
+        Self {
+            block_read: default_block_read_paths(),
+            block_write: default_block_write_paths(),
+            allow_read: Vec::new(),
+            allow_write: Vec::new(),
+        }
+    }
+}
+
+impl Default for PiiPolicy {
+    fn default() -> Self {
+        Self {
+            block_in_prompt: true,
+            block_in_file_content: true,
+            redact_in_response: true,
+            types: default_pii_types(),
+        }
+    }
+}
+
+impl Default for UrlPolicy {
+    fn default() -> Self {
+        Self {
+            blocklist: default_blocked_domains(),
+            allowlist: Vec::new(),
+        }
+    }
+}
+
+impl Default for InjectionPolicy {
+    fn default() -> Self {
+        Self { enabled: true }
+    }
 }
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
@@ -223,6 +276,8 @@ pub fn load() -> Result<Policy> {
     verify_policy_signature(&raw_content)?;
 
     // Parse from content, or fall back to secure built-in defaults.
+    // Policy::default() now correctly delegates to each sub-struct's manual
+    // Default impl (which uses the same values as the serde default functions).
     let policy = if raw_content.is_empty() {
         Policy::default()
     } else {

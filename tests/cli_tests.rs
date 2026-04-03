@@ -5,6 +5,18 @@
 /// the full argument parsing → policy load → verdict path.
 use assert_cmd::Command;
 
+/// Returns a per-test temporary HOME directory so kiteguard uses built-in
+/// default policy instead of whatever rules.json the CI runner may have.
+/// Any stale rules.json from previous runs is removed so defaults always apply.
+fn isolated_home(name: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("kiteguard-ci-{}", name));
+    std::fs::create_dir_all(&dir).unwrap();
+    // Remove any stale rules.json left by a previous test run so kiteguard
+    // always falls back to built-in secure defaults in these tests.
+    let _ = std::fs::remove_file(dir.join(".kiteguard").join("rules.json"));
+    dir
+}
+
 // ─────────────────────────────────────────────
 // kiteguard test
 // ─────────────────────────────────────────────
@@ -13,6 +25,7 @@ use assert_cmd::Command;
 fn test_command_allow_exits_zero() {
     Command::cargo_bin("kiteguard")
         .unwrap()
+        .env("HOME", isolated_home("allow"))
         .args(["test", "command", "ls -la"])
         .assert()
         .success();
@@ -22,6 +35,7 @@ fn test_command_allow_exits_zero() {
 fn test_command_block_exits_two() {
     Command::cargo_bin("kiteguard")
         .unwrap()
+        .env("HOME", isolated_home("block"))
         .args(["test", "command", "rm -rf /"])
         .assert()
         .code(2);
@@ -49,6 +63,7 @@ fn test_url_safe_exits_zero() {
 fn test_json_flag_allow_outputs_json() {
     let output = Command::cargo_bin("kiteguard")
         .unwrap()
+        .env("HOME", isolated_home("json-allow"))
         .args(["test", "--json", "command", "ls -la"])
         .assert()
         .success()
@@ -67,6 +82,7 @@ fn test_json_flag_allow_outputs_json() {
 fn test_json_flag_block_outputs_json_and_exits_two() {
     let output = Command::cargo_bin("kiteguard")
         .unwrap()
+        .env("HOME", isolated_home("json-block"))
         .args(["test", "--json", "command", "rm -rf /"])
         .assert()
         .code(2)
