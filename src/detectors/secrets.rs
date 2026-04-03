@@ -43,6 +43,32 @@ static SECRET_PATTERNS: &[(&str, &str)] = &[
         r#"(?i)(SECRET|PASSWORD|PASSWD|TOKEN|API_KEY)\s*=\s*['"]*[A-Za-z0-9\-_\.@#$%]{8,}"#,
         ".env secret value",
     ),
+    // ── v0.2 additions ────────────────────────────────────────────────────────
+    // Anthropic API key (sk-ant-<service>-<base64>)
+    (r"\bsk-ant-[A-Za-z0-9_\-]{32,}\b", "Anthropic API key"),
+    // OpenAI API key (sk-<40+ chars, no dashes so doesn't overlap Anthropic/Stripe)
+    (r"\bsk-[A-Za-z0-9]{40,}\b", "OpenAI API key"),
+    // HuggingFace User Access Token
+    (r"\bhf_[A-Za-z0-9]{30,}\b", "HuggingFace token"),
+    // GitLab Personal Access Token
+    (
+        r"\bglpat-[A-Za-z0-9_\-]{20}\b",
+        "GitLab personal access token",
+    ),
+    // npm access token
+    (r"\bnpm_[A-Za-z0-9]{36}\b", "npm access token"),
+    // SendGrid API key
+    (
+        r"\bSG\.[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{40,}\b",
+        "SendGrid API key",
+    ),
+    // Twilio API Key SID
+    (r"\bSK[0-9a-fA-F]{32}\b", "Twilio API key"),
+    // Generic database connection strings with embedded credentials
+    (
+        r"(?i)(postgres|mysql|mongodb|redis)://[^:]+:[^@]{6,}@",
+        "database connection string with credentials",
+    ),
 ];
 
 static COMPILED: OnceLock<Vec<(Regex, String)>> = OnceLock::new();
@@ -193,5 +219,57 @@ mod tests {
     #[test]
     fn allows_empty() {
         assert!(scan("").is_none());
+    }
+
+    // ── v0.2 new secret patterns ──────────────────────────────────────────────
+
+    #[test]
+    fn blocks_anthropic_api_key() {
+        let key =
+            "sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        assert!(scan(key).is_some());
+    }
+
+    #[test]
+    fn blocks_openai_api_key() {
+        let key = "sk-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        assert!(scan(key).is_some());
+    }
+
+    #[test]
+    fn blocks_huggingface_token() {
+        let tok = "hf_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        assert!(scan(tok).is_some());
+    }
+
+    #[test]
+    fn blocks_gitlab_pat() {
+        let tok = "glpat-AAAABBBBCCCCDDDDEEEE";
+        assert!(scan(tok).is_some());
+    }
+
+    #[test]
+    fn blocks_npm_token() {
+        // npm_ + exactly 36 alphanumeric chars
+        let tok = "npm_AAAAABBBBBCCCCCDDDDDEEEEEFFFFFGGGGGH";
+        assert!(scan(tok).is_some());
+    }
+
+    #[test]
+    fn blocks_sendgrid_key() {
+        let key = "SG.AAAAAAAAAAAAAAAAAAAA.AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        assert!(scan(key).is_some());
+    }
+
+    #[test]
+    fn blocks_twilio_key() {
+        // SK + exactly 32 hex chars — split so GitHub secret scanning does not flag it.
+        let key = concat!("SK", "1234567890abcdef1234567890abcdef");
+        assert!(scan(key).is_some());
+    }
+
+    #[test]
+    fn blocks_db_conn_with_password() {
+        assert!(scan("postgres://admin:supersecret@db.example.com/mydb").is_some());
     }
 }

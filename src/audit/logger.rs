@@ -9,6 +9,19 @@ use std::sync::Mutex;
 // from reading the same prev_hash and producing a broken chain link (L5).
 static LOG_MUTEX: Mutex<()> = Mutex::new(());
 
+// Active policy version tag — set once after policy load, read on every log write.
+static POLICY_VERSION: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+
+/// Records the active policy version so it can be embedded in every audit entry.
+/// Call this once after `policy::load()` in the hook entrypoint.
+pub fn set_policy_version(v: &str) {
+    let _ = POLICY_VERSION.set(v.to_string());
+}
+
+fn policy_version() -> &'static str {
+    POLICY_VERSION.get().map(|s| s.as_str()).unwrap_or("")
+}
+
 /// Rotate when the log exceeds 10 MB; keep up to 3 rotated files.
 const MAX_LOG_SIZE: u64 = 10 * 1024 * 1024;
 const MAX_ROTATED: u8 = 3;
@@ -67,18 +80,20 @@ Audit log may be readable by other local users.",
     // Build the entry body — the string we will hash (no "hash" field yet).
     // Use serde_json to guarantee proper escaping and single-line output.
     let body_value = serde_json::json!({
-        "ts":         crate::util::timestamp(),
-        "seq":        seq,
-        "client":     client,
-        "hook":       hook_event,
-        "verdict":    verdict.as_str(),
-        "rule":       rule,
-        "reason":     reason,
-        "user":       identity::user(),
-        "host":       identity::host(),
-        "repo":       identity::repo(),
-        "input_hash": crate::crypto::sha256_hex(raw_input.as_bytes()),
-        "prev_hash":  prev_hash,
+        "ts":             crate::util::timestamp(),
+        "seq":            seq,
+        "client":         client,
+        "hook":           hook_event,
+        "verdict":        verdict.as_str(),
+        "rule":           rule,
+        "reason":         reason,
+        "policy_version": policy_version(),
+        "user":           identity::user(),
+        "host":           identity::host(),
+        "repo":           identity::repo(),
+        "input_hash":     crate::crypto::sha256_hex(raw_input.as_bytes()),
+        "tokens_in":      estimate_tokens(raw_input),
+        "prev_hash":      prev_hash,
     });
     let entry_body = serde_json::to_string(&body_value)
         .map_err(|e| format!("audit log serialization error: {}", e))?;
@@ -322,4 +337,13 @@ pub fn identity_host() -> String {
 }
 pub fn identity_repo() -> String {
     identity::repo()
+}
+
+/// Rough token count estimate: 1 token ≈ 4 characters (GPT/Claude typical).
+/// Stored in audit log for cost tracking and session analytics.
+fn estimate_tokens(text: &str) -> u32 {
+    // div_ceil equivalent compatible with MSRV 1.75
+    // (div_ceil stabilised on integers in 1.73 but clippy recommends it from 1.73+;
+    // we use it directly since 1.73 ≤ 1.75 MSRV)
+    text.len().div_ceil(4) as u32
 }

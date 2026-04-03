@@ -15,11 +15,14 @@ fn fully_enabled_policy() -> Policy {
         bash: BashPolicy {
             enabled: true,
             block_patterns: vec![r"rm\s+-rf".to_string(), r"eval.*base64".to_string()],
+            allow_patterns: vec![],
             block_on_error: true,
         },
         file_paths: FilePathPolicy {
             block_read: vec!["**/.ssh/**".to_string(), "**/.env".to_string()],
             block_write: vec!["/etc/**".to_string(), "**/.bashrc".to_string()],
+            allow_read: vec![],
+            allow_write: vec![],
         },
         pii: PiiPolicy {
             block_in_prompt: true,
@@ -29,9 +32,12 @@ fn fully_enabled_policy() -> Policy {
         },
         urls: UrlPolicy {
             blocklist: vec!["evil.com".to_string()],
+            allowlist: vec![],
         },
         injection: InjectionPolicy { enabled: true },
         webhook: None,
+        version: None,
+        remote_policy_url: None,
     }
 }
 
@@ -40,11 +46,14 @@ fn all_disabled_policy() -> Policy {
         bash: BashPolicy {
             enabled: false,
             block_patterns: vec![r"rm\s+-rf".to_string()],
+            allow_patterns: vec![],
             block_on_error: false,
         },
         file_paths: FilePathPolicy {
             block_read: vec![],
             block_write: vec![],
+            allow_read: vec![],
+            allow_write: vec![],
         },
         pii: PiiPolicy {
             block_in_prompt: false,
@@ -52,9 +61,14 @@ fn all_disabled_policy() -> Policy {
             redact_in_response: false,
             types: vec!["ssn".into()],
         },
-        urls: UrlPolicy { blocklist: vec![] },
+        urls: UrlPolicy {
+            blocklist: vec![],
+            allowlist: vec![],
+        },
         injection: InjectionPolicy { enabled: false },
         webhook: None,
+        version: None,
+        remote_policy_url: None,
     }
 }
 
