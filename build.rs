@@ -15,10 +15,17 @@ fn main() {
     println!("cargo:rerun-if-changed=console/package.json");
     println!("cargo:rerun-if-changed=console/vite.config.js");
 
+    // On Windows, npm is a .cmd batch file and Rust's Command::new won't find it
+    // without the extension — use npm.cmd explicitly on that platform.
+    #[cfg(windows)]
+    let npm = "npm.cmd";
+    #[cfg(not(windows))]
+    let npm = "npm";
+
     // Install node_modules if not present
     let node_modules = dashboard.join("node_modules");
     if !node_modules.exists() {
-        let status = Command::new("npm")
+        let status = Command::new(npm)
             .args(["ci", "--prefer-offline", "--ignore-scripts"])
             .current_dir(dashboard)
             .status()
@@ -29,7 +36,7 @@ fn main() {
     }
 
     // Build the Vue app
-    let status = Command::new("npm")
+    let status = Command::new(npm)
         .args(["run", "build"])
         .current_dir(dashboard)
         .status()
