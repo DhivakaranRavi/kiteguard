@@ -2,13 +2,33 @@
 
 ## kiteguard init
 
-Registers all four hooks in `~/.claude/settings.json` and creates the `~/.kiteguard/` config directory.
+Registers kiteguard hooks for a specific AI agent.
+
+### Claude Code
+
+Writes all four hooks to `~/.claude/settings.json` and creates the `~/.kiteguard/` config directory.
 
 ```bash
-kiteguard init
+kiteguard init --claude-code
 ```
 
-Run this once after installation. Re-run after updating the binary.
+### Cursor
+
+Writes 10 hooks (with `failClosed: true` on all blocking hooks) to both `.cursor/hooks.json` (project-level) and `~/.cursor/hooks.json` (user-level).
+
+```bash
+kiteguard init --cursor
+```
+
+### Gemini CLI
+
+Writes hooks to `.gemini/settings.json` in the current project directory.
+
+```bash
+kiteguard init --gemini
+```
+
+Re-run after updating the binary. You can run multiple init commands to protect all agents simultaneously.
 
 ---
 

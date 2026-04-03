@@ -2,18 +2,23 @@
 name        = "kiteguard"
 version     = "0.1.0"
 edition     = "2021"
-description = "Runtime security guardrails for Claude Code and AI coding agents"
-license     = "MIT OR Apache-2.0"
+rust-version = "1.75"
+description = "Open-source runtime security guardrails for Claude Code, Cursor, and Gemini CLI"
+license     = "MIT"
 repository  = "https://github.com/DhivakaranRavi/kiteguard"
-homepage    = "https://kiteguard.dev"
-keywords    = ["security", "claude", "ai-agents", "guardrails", "devsec"]
+homepage    = "https://dhivakaranravi.github.io/kiteguard"
+keywords    = ["security", "guardrails", "ai-agents", "claude", "cursor", "Gemini CLI"]
 categories  = ["command-line-utilities", "development-tools"]
-authors     = ["kiteguard contributors"]
+authors     = ["Dhivakaran Ravi"]
 readme      = "README.md"
 
 [[bin]]
 name = "kiteguard"
 path = "src/main.rs"
+
+[lib]
+name = "kiteguard"
+path = "src/lib.rs"
 
 [dependencies]
 serde       = { version = "1", features = ["derive"] }

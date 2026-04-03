@@ -21,10 +21,17 @@
 # Hooks
 
 - [Overview](hooks/overview.md)
+
+## Claude Code
 - [UserPromptSubmit](hooks/user-prompt-submit.md)
 - [PreToolUse](hooks/pre-tool-use.md)
 - [PostToolUse](hooks/post-tool-use.md)
 - [Stop](hooks/stop.md)
+
+## Cursor
+- [beforeSubmitPrompt](hooks/user-prompt-submit.md)
+- [preToolUse / beforeShellExecution / beforeReadFile / beforeMCPExecution](hooks/pre-tool-use.md)
+- [postToolUse / afterShellExecution / afterMCPExecution / afterAgentResponse](hooks/post-tool-use.md)
 
 # Detectors
 

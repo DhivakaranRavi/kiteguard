@@ -73,3 +73,123 @@ pub fn scan(text: &str) -> Option<Verdict> {
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- AWS ---
+
+    #[test]
+    fn blocks_aws_access_key() {
+        assert!(scan("key: AKIAIOSFODNN7EXAMPLE").is_some());
+    }
+
+    // --- GitHub tokens ---
+
+    #[test]
+    fn blocks_github_pat() {
+        assert!(scan("token: ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgh12").is_some());
+    }
+
+    #[test]
+    fn blocks_github_oauth() {
+        assert!(scan("gho_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgh12").is_some());
+    }
+
+    #[test]
+    fn blocks_github_app_token() {
+        assert!(scan("ghs_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgh12").is_some());
+    }
+
+    // --- JWT ---
+
+    #[test]
+    fn blocks_jwt() {
+        assert!(scan("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0.abc123def456abc123def456abc1").is_some());
+    }
+
+    // --- Private key ---
+
+    #[test]
+    fn blocks_rsa_private_key_header() {
+        assert!(scan("-----BEGIN RSA PRIVATE KEY-----").is_some());
+    }
+
+    #[test]
+    fn blocks_openssh_private_key_header() {
+        assert!(scan("-----BEGIN OPENSSH PRIVATE KEY-----").is_some());
+    }
+
+    #[test]
+    fn blocks_bare_private_key_header() {
+        assert!(scan("-----BEGIN PRIVATE KEY-----").is_some());
+    }
+
+    // --- Slack ---
+
+    #[test]
+    fn blocks_slack_bot_token() {
+        // Synthetic token — real format is xoxb-<digits>-<alphanum>
+        // Split across concat! so GitHub secret scanning does not flag it.
+        let token = concat!("xoxb", "-111111111111-", "AAAAABBBBBCCCCC");
+        assert!(scan(token).is_some());
+    }
+
+    // --- Stripe ---
+
+    #[test]
+    fn blocks_stripe_live_secret() {
+        // Synthetic key — split so GitHub secret scanning does not flag it.
+        let key = concat!("sk", "_live_", "AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHH");
+        assert!(scan(key).is_some());
+    }
+
+    #[test]
+    fn blocks_stripe_publishable() {
+        let key = concat!("pk", "_live_", "AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHH");
+        assert!(scan(key).is_some());
+    }
+
+    // --- .env style ---
+
+    #[test]
+    fn blocks_env_secret_assignment() {
+        assert!(scan("SECRET=mysupersecretvalue123").is_some());
+    }
+
+    #[test]
+    fn blocks_env_password_assignment() {
+        assert!(scan("PASSWORD=hunter2password!").is_some());
+    }
+
+    #[test]
+    fn blocks_env_api_key_assignment() {
+        assert!(scan("API_KEY=abcdef1234567890abcdef").is_some());
+    }
+
+    // --- Bearer token ---
+
+    #[test]
+    fn blocks_bearer_token() {
+        assert!(scan("Authorization: Bearer abcdefghijklmnopqrstuvwxyz1234").is_some());
+    }
+
+    // --- Clean text ---
+
+    #[test]
+    fn allows_clean_code() {
+        assert!(scan("fn main() { println!(\"hello\"); }").is_none());
+    }
+
+    #[test]
+    fn allows_git_sha() {
+        // 40-char git SHA must not trigger (intentionally excluded pattern)
+        assert!(scan("commit abc1234def5678901234567890abcdef12345678").is_none());
+    }
+
+    #[test]
+    fn allows_empty() {
+        assert!(scan("").is_none());
+    }
+}

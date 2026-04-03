@@ -3,7 +3,7 @@
 ## Requirements
 
 - macOS or Linux
-- [Claude Code](https://claude.ai/code) installed
+- At least one of: [Claude Code](https://claude.ai/code), [Cursor](https://cursor.com), or [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 
 ## One-line install
 
@@ -16,7 +16,24 @@ This:
 2. Downloads the correct pre-built binary
 3. Verifies the checksum
 4. Installs to `/usr/local/bin/kiteguard`
-5. Runs `kiteguard init` to register hooks with Claude Code
+5. Runs `kiteguard init --claude-code` to register hooks with Claude Code
+
+## Register with your agent
+
+After the binary is installed, register hooks for whichever AI agent(s) you use:
+
+```bash
+# Claude Code
+kiteguard init --claude-code
+
+# Cursor  
+kiteguard init --cursor
+
+# Gemini CLI
+kiteguard init --gemini
+```
+
+You can run multiple init commands to protect all agents simultaneously.
 
 ## Manual install
 
@@ -34,7 +51,7 @@ Download a binary from [GitHub Releases](https://github.com/DhivakaranRavi/kiteg
 curl -sSfL https://github.com/DhivakaranRavi/kiteguard/releases/latest/download/kiteguard-macos-arm64 \
   -o /usr/local/bin/kiteguard
 chmod +x /usr/local/bin/kiteguard
-kiteguard init
+kiteguard init --claude-code   # or --cursor or --gemini
 ```
 
 ## Build from source
@@ -43,7 +60,8 @@ kiteguard init
 git clone https://github.com/DhivakaranRavi/kiteguard
 cd kiteguard
 cargo build --release
-./target/release/kiteguard init
+sudo install -m755 target/release/kiteguard /usr/local/bin/kiteguard
+kiteguard init --claude-code
 ```
 
 ## Verify installation

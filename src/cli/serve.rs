@@ -24,30 +24,67 @@ const MAX_LOG_ENTRIES: usize = 10_000;
 const RATE_LIMIT_PER_MIN: u32 = 120;
 
 struct RateLimiter {
-    window_start: u64, // unix seconds at start of current 60-s window
+    // Option<Instant> so the struct is const-constructible (None has no runtime data).
+    // Using Instant (monotonic) rather than SystemTime prevents clock-skew bypass.
+    window_start: Option<std::time::Instant>,
     count: u32,
 }
 
 impl RateLimiter {
     const fn new() -> Self {
         RateLimiter {
-            window_start: 0,
+            window_start: None,
             count: 0,
         }
     }
 
     /// Returns true if the request should be allowed (updates internal state).
     fn check(&mut self) -> bool {
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs();
-        if now >= self.window_start + 60 {
-            self.window_start = now;
-            self.count = 0;
+        let now = std::time::Instant::now();
+        match self.window_start {
+            None => {
+                self.window_start = Some(now);
+                self.count = 1;
+            }
+            Some(start) if now.duration_since(start).as_secs() >= 60 => {
+                self.window_start = Some(now);
+                self.count = 1;
+            }
+            _ => {
+                self.count += 1;
+            }
         }
-        self.count += 1;
         self.count <= RATE_LIMIT_PER_MIN
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- Rate limiter (L-7 fix: uses Instant not SystemTime) ---
+
+    #[test]
+    fn rate_limiter_allows_up_to_limit() {
+        let mut rl = RateLimiter::new();
+        for _ in 0..RATE_LIMIT_PER_MIN {
+            assert!(rl.check(), "should allow up to the limit");
+        }
+    }
+
+    #[test]
+    fn rate_limiter_blocks_over_limit() {
+        let mut rl = RateLimiter::new();
+        for _ in 0..RATE_LIMIT_PER_MIN {
+            rl.check();
+        }
+        assert!(!rl.check(), "should block once limit exceeded");
+    }
+
+    #[test]
+    fn rate_limiter_first_call_always_allowed() {
+        let mut rl = RateLimiter::new();
+        assert!(rl.check());
     }
 }
 
@@ -85,6 +122,7 @@ struct EventsQuery {
     limit: Option<usize>,
     verdict: Option<String>,
     hook: Option<String>,
+    client: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -202,12 +240,18 @@ async fn events_handler(Query(q): Query<EventsQuery>) -> Response {
         .into_iter()
         .filter(|e| {
             if let Some(ref v) = q.verdict {
-                if e.get("verdict").and_then(|x| x.as_str()).unwrap_or("") != v {
+                let entry_verdict = e.get("verdict").and_then(|x| x.as_str()).unwrap_or("");
+                if !entry_verdict.eq_ignore_ascii_case(v) {
                     return false;
                 }
             }
             if let Some(ref h) = q.hook {
                 if e.get("hook").and_then(|x| x.as_str()).unwrap_or("") != h {
+                    return false;
+                }
+            }
+            if let Some(ref c) = q.client {
+                if e.get("client").and_then(|x| x.as_str()).unwrap_or("") != c {
                     return false;
                 }
             }
@@ -319,10 +363,10 @@ async fn security_headers(req: Request, next: Next) -> Response {
     );
     h.insert(
         header::HeaderName::from_static("content-security-policy"),
-        // 'unsafe-inline' removed from script-src — Vite's production build
-        // emits external .js files only, no inline scripts.
+        // 'unsafe-inline' removed from both script-src and style-src —
+        // Vite's production build emits external .js/.css files only.
         HeaderValue::from_static(
-            "default-src 'self'; style-src 'self' 'unsafe-inline'; \
+            "default-src 'self'; style-src 'self'; \
              script-src 'self'; img-src 'self' data:",
         ),
     );

@@ -1,16 +1,22 @@
-# UserPromptSubmit
+# UserPromptSubmit / beforeSubmitPrompt
 
-This hook fires when you press Enter in Claude Code — before Claude has processed your message.
+This hook fires when you press Enter — before the agent has processed your message.
+
+| Agent | Hook name |
+|---|---|
+| Claude Code | `UserPromptSubmit` |
+| Cursor | `beforeSubmitPrompt` |
 
 ## What kiteguard checks
 
-| Check              | Description                                             |
-|--------------------|---------------------------------------------------------|
-| Prompt injection   | Patterns like "ignore previous instructions"            |
-| PII detection      | SSN, credit cards, emails, phone numbers, passport IDs  |
+| Check | Description |
+|---|---|
+| Prompt injection | Patterns like "ignore previous instructions" |
+| PII detection | SSN, credit cards, emails, phone numbers, passport IDs |
 
-## Hook payload (stdin from Claude Code)
+## Hook payload
 
+**Claude Code:**
 ```json
 {
   "hook_event_name": "UserPromptSubmit",
@@ -18,21 +24,29 @@ This hook fires when you press Enter in Claude Code — before Claude has proces
 }
 ```
 
+**Cursor:**
+```json
+{
+  "hookEventName": "beforeSubmitPrompt",
+  "prompt": "Summarize these customer records: Alice, SSN 123-45-6789…"
+}
+```
+
 ## Verdicts
 
-| Condition                                      | Exit code | Effect                              |
-|------------------------------------------------|-----------|-------------------------------------|
-| No match                                       | `0`       | Claude receives the prompt          |
-| Injection pattern matched                      | `2`       | Request blocked, user sees error    |
-| PII matched + `block_on_prompt: true`          | `2`       | Request blocked                     |
-| PII matched + `block_on_prompt: false`         | `0`       | Audit logged, Claude proceeds       |
-| kiteguard crashes                              | `2`       | Fail-closed                         |
+| Condition | Exit code | Effect |
+|---|---|---|
+| No match | `0` | Agent receives the prompt |
+| Injection pattern matched | `2` | Request blocked, user sees error |
+| PII matched + `block_on_prompt: true` | `2` | Request blocked |
+| PII matched + `block_on_prompt: false` | `0` | Audit logged, agent proceeds |
+| kiteguard crashes | `2` | Fail-closed |
 
 ## When to set `block_on_prompt: true`
 
-Enable this if your organization's policy prohibits Claude from ever processing PII — even when the user intentionally submits it. This is appropriate for environments where Claude should only work with anonymized data.
+Enable this if your organization's policy prohibits the agent from ever processing PII. Appropriate for environments where only anonymized data should be processed.
 
-Disable it (the default) if your users legitimately process data that may contain PII (e.g., helping parse a CSV file), and you only want to prevent PII from leaking back out through Claude's response.
+Disable it (the default) if users legitimately work with data that may contain PII and you only want to prevent PII from leaking out through the response.
 
 ## Audit log entry
 

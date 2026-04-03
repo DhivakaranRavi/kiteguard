@@ -3,3 +3,18 @@
 # Dashboard
 dashboard/node_modules
 dashboard/dist
+
+# Console build output (generated artifact)
+console/dist/
+
+# macOS metadata
+.DS_Store
+docs/src/.DS_Store
+
+# Local agent hooks (contain machine-specific absolute paths)
+.gemini/
+.cursor/
+.github/hooks/
+
+# Accidental files
+*.avif

@@ -8,17 +8,41 @@
       <select v-model="filterVerdict"
         class="bg-white border border-retro-border text-gray-700 text-xs px-3 py-1.5 tracking-wider outline-none focus:border-retro-green cursor-pointer">
         <option value="">-- ALL VERDICTS --</option>
-        <option value="Block">BLOCK</option>
-        <option value="Allow">ALLOW</option>
+        <option value="block">BLOCK</option>
+        <option value="allow">ALLOW</option>
       </select>
 
       <select v-model="filterHook"
         class="bg-white border border-retro-border text-gray-700 text-xs px-3 py-1.5 tracking-wider outline-none focus:border-retro-green cursor-pointer">
         <option value="">-- ALL HOOKS --</option>
-        <option value="UserPromptSubmit">UserPromptSubmit</option>
-        <option value="PreToolUse">PreToolUse</option>
-        <option value="PostToolUse">PostToolUse</option>
-        <option value="Stop">Stop</option>
+        <optgroup label="Claude Code">
+          <option value="UserPromptSubmit">UserPromptSubmit</option>
+          <option value="PreToolUse">PreToolUse</option>
+          <option value="PostToolUse">PostToolUse</option>
+          <option value="Stop">Stop</option>
+        </optgroup>
+        <optgroup label="Cursor">
+          <option value="beforeSubmitPrompt">beforeSubmitPrompt</option>
+          <option value="beforeShellExecution">beforeShellExecution</option>
+          <option value="beforeReadFile">beforeReadFile</option>
+          <option value="beforeMCPExecution">beforeMCPExecution</option>
+          <option value="afterShellExecution">afterShellExecution</option>
+          <option value="afterAgentResponse">afterAgentResponse</option>
+        </optgroup>
+        <optgroup label="Gemini">
+          <option value="BeforeAgent">BeforeAgent</option>
+          <option value="BeforeTool">BeforeTool</option>
+          <option value="AfterTool">AfterTool</option>
+          <option value="AfterAgent">AfterAgent</option>
+        </optgroup>
+      </select>
+
+      <select v-model="filterClient"
+        class="bg-white border border-retro-border text-gray-700 text-xs px-3 py-1.5 tracking-wider outline-none focus:border-retro-green cursor-pointer">
+        <option value="">-- ALL CLIENTS --</option>
+        <option value="claude">CLAUDE CODE</option>
+        <option value="cursor">CURSOR</option>
+        <option value="gemini">GEMINI</option>
       </select>
 
       <span class="text-xs text-gray-400 tracking-widest">{{ (page - 1) * 100 + 1 }}–{{ Math.min(page * 100, total) }} of {{ total }}</span>
@@ -31,6 +55,7 @@
           <tr class="text-retro-green/40 tracking-widest uppercase border-b border-retro-border">
             <th class="text-left pb-3 pr-6 font-normal whitespace-nowrap">TIMESTAMP</th>
             <th class="text-left pb-3 pr-6 font-normal">HOOK</th>
+            <th class="text-left pb-3 pr-6 font-normal">CLIENT</th>
             <th class="text-left pb-3 pr-6 font-normal">VERDICT</th>
             <th class="text-left pb-3 pr-6 font-normal">REPO</th>
             <th class="text-left pb-3 font-normal">USER</th>
@@ -38,12 +63,12 @@
         </thead>
         <tbody>
           <tr v-if="loading">
-            <td colspan="5" class="py-10 text-center text-gray-400 tracking-widest">
+            <td colspan="6" class="py-10 text-center text-gray-400 tracking-widest">
               <span class="blink">█</span> LOADING ...
             </td>
           </tr>
           <tr v-else-if="events.length === 0">
-            <td colspan="5" class="py-10 text-center text-gray-400 tracking-widest">
+            <td colspan="6" class="py-10 text-center text-gray-400 tracking-widest">
               :: NO RECORDS FOUND ::
             </td>
           </tr>
@@ -51,17 +76,27 @@
             v-for="(ev, i) in events"
             :key="i"
             class="border-b border-retro-border/30 transition-colors cursor-pointer"
-            :class="ev.verdict === 'Block' ? 'hover:bg-retro-red-dim/40' : 'hover:bg-retro-green-dim'"
+            :class="ev.verdict === 'block' ? 'hover:bg-retro-red-dim/40' : 'hover:bg-retro-green-dim'"
             @click="selectedEvent = ev"
           >
             <td class="py-2.5 pr-6 text-gray-500 whitespace-nowrap">{{ formatTs(ev.ts) }}</td>
             <td class="py-2.5 pr-6 text-retro-cyan opacity-80 tracking-wide">{{ ev.hook || '—' }}</td>
             <td class="py-2.5 pr-6">
+              <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] tracking-widest rounded border"
+                :class="{
+                  'text-retro-cyan border-retro-cyan/40 bg-retro-cyan/10':     ev.client === 'claude',
+                  'text-violet-400 border-violet-400/40 bg-violet-400/10':    ev.client === 'cursor',
+                  'text-retro-amber border-retro-amber/40 bg-retro-amber/10': ev.client === 'gemini',
+                  'text-gray-500 border-gray-500/30':                          !ev.client || ev.client === 'unknown',
+                }"
+              >{{ (ev.client || 'unknown').toUpperCase() }}</span>
+            </td>
+            <td class="py-2.5 pr-6">
               <span
                 class="inline-flex items-center gap-1.5 tracking-widest"
-                :class="ev.verdict === 'Block' ? 'text-retro-red glow-red' : 'text-retro-green glow-green'"
+                :class="ev.verdict === 'block' ? 'text-retro-red glow-red' : 'text-retro-green glow-green'"
               >
-                <span>{{ ev.verdict === 'Block' ? '✕' : '✓' }}</span>
+                <span>{{ ev.verdict === 'block' ? '✕' : '✓' }}</span>
                 {{ ev.verdict?.toUpperCase() }}
               </span>
             </td>
@@ -106,20 +141,20 @@
       >
         <div
           class="relative w-full max-w-2xl border panel-glow text-xs font-mono"
-          :class="selectedEvent.verdict === 'Block'
+          :class="selectedEvent.verdict === 'block'
             ? 'border-retro-red bg-retro-panel'
             : 'border-retro-green bg-retro-panel'"
         >
           <!-- Title bar -->
           <div
             class="flex items-center justify-between px-4 py-2 border-b"
-            :class="selectedEvent.verdict === 'Block' ? 'border-retro-red/40 bg-retro-red/10' : 'border-retro-green/40 bg-retro-green/10'"
+            :class="selectedEvent.verdict === 'block' ? 'border-retro-red/40 bg-retro-red/10' : 'border-retro-green/40 bg-retro-green/10'"
           >
             <span
               class="tracking-widest uppercase"
-              :class="selectedEvent.verdict === 'Block' ? 'text-retro-red glow-red' : 'text-retro-green glow-green'"
+              :class="selectedEvent.verdict === 'block' ? 'text-retro-red glow-red' : 'text-retro-green glow-green'"
             >
-              {{ selectedEvent.verdict === 'Block' ? '✕ BLOCKED' : '✓ ALLOWED' }} — EVENT DETAIL
+              {{ selectedEvent.verdict === 'block' ? '✕ BLOCKED' : '✓ ALLOWED' }} — EVENT DETAIL
             </span>
             <button
               @click="selectedEvent = null"
@@ -136,9 +171,19 @@
               <span class="text-retro-green/50 tracking-widest uppercase">HOOK</span>
               <span class="text-retro-cyan">{{ selectedEvent.hook || '—' }}</span>
 
+              <span class="text-retro-green/50 tracking-widest uppercase">CLIENT</span>
+              <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] tracking-widest rounded border w-fit"
+                :class="{
+                  'text-retro-cyan border-retro-cyan/40 bg-retro-cyan/10':     selectedEvent.client === 'claude',
+                  'text-violet-400 border-violet-400/40 bg-violet-400/10':    selectedEvent.client === 'cursor',
+                  'text-retro-amber border-retro-amber/40 bg-retro-amber/10': selectedEvent.client === 'gemini',
+                  'text-gray-500 border-gray-500/30':                          !selectedEvent.client || selectedEvent.client === 'unknown',
+                }"
+              >{{ (selectedEvent.client || 'unknown').toUpperCase() }}</span>
+
               <span class="text-retro-green/50 tracking-widest uppercase">VERDICT</span>
-              <span :class="selectedEvent.verdict === 'Block' ? 'text-retro-red glow-red' : 'text-retro-green glow-green'" class="tracking-widest">
-                {{ selectedEvent.verdict === 'Block' ? '✕' : '✓' }} {{ selectedEvent.verdict?.toUpperCase() }}
+              <span :class="selectedEvent.verdict === 'block' ? 'text-retro-red glow-red' : 'text-retro-green glow-green'" class="tracking-widest">
+                {{ selectedEvent.verdict === 'block' ? '✕' : '✓' }} {{ selectedEvent.verdict?.toUpperCase() }}
               </span>
 
               <span class="text-retro-green/50 tracking-widest uppercase">RULE</span>
@@ -148,7 +193,7 @@
                 <span class="text-retro-green/50 tracking-widest uppercase self-start pt-0.5">REASON</span>
                 <span
                   class="text-gray-200 leading-relaxed break-words"
-                  :class="selectedEvent.verdict === 'Block' ? 'text-retro-red/90' : 'text-gray-200'"
+                  :class="selectedEvent.verdict === 'block' ? 'text-retro-red/90' : 'text-gray-200'"
                 >{{ selectedEvent.reason }}</span>
               </template>
 
@@ -191,6 +236,7 @@ const totalPages    = ref(1)
 const loading       = ref(false)
 const filterVerdict = ref('')
 const filterHook    = ref('')
+const filterClient  = ref('')
 const selectedEvent = ref(null)
 
 async function load() {
@@ -201,6 +247,7 @@ async function load() {
       limit:   LIMIT,
       verdict: filterVerdict.value || undefined,
       hook:    filterHook.value    || undefined,
+      client:  filterClient.value  || undefined,
     })
     events.value     = data.events
     total.value      = data.total
@@ -223,7 +270,7 @@ function formatTs(ts) {
   } catch { return ts }
 }
 
-watch([filterVerdict, filterHook], () => { page.value = 1; load() })
+watch([filterVerdict, filterHook, filterClient], () => { page.value = 1; load() })
 watch(page, load)
 onMounted(load)
 </script>

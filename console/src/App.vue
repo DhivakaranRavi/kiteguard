@@ -6,7 +6,7 @@
       <div class="max-w-7xl mx-auto px-6 py-2">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-4">
-            <img src="/kiteguard-logo.png" alt="KiteGuard" class="h-20 w-auto" />
+            <img src="/kiteguard-logo-black.png" alt="KiteGuard" class="h-10 w-auto" />
             <div class="text-xs text-retro-green tracking-widest leading-relaxed opacity-60">
               <div>SECURITY CONSOLE</div>
               <div class="opacity-60">v{{ version }} :: localhost</div>

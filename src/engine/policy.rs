@@ -76,7 +76,9 @@ fn default_bash_patterns() -> Vec<String> {
     vec![
         r"curl[^|]*\|[^|]*(bash|sh)".into(),
         r"wget[^|]*\|[^|]*(bash|sh)".into(),
-        r"rm\s+-rf\s+/".into(),
+        r"rm\s+-rf\s+/".into(),           // rm -rf /<anything>
+        r"rm\s+-rf\s+~".into(),           // rm -rf ~/... and rm -rf ~/.ssh etc.
+        r"rm\s+-rf\s+\$HOME".into(),      // rm -rf $HOME/...
         r"eval\s*\(.*base64".into(),
         r"/dev/tcp/".into(),
         r"nc\s+-e\s+/bin".into(),
@@ -105,6 +107,12 @@ fn default_block_write_paths() -> Vec<String> {
         "**/.ssh/**".into(),
         "**/.aws/credentials".into(),
         "**/cron*".into(),
+        // Shell startup files — prevent reverse-shell persistence via profile injection
+        "**/.bashrc".into(),
+        "**/.bash_profile".into(),
+        "**/.zshrc".into(),
+        "**/.profile".into(),
+        "**/.bash_logout".into(),
     ]
 }
 
@@ -219,9 +227,8 @@ fn verify_policy_signature(raw_content: &str) -> Result<()> {
         let fingerprint = config_dir.join(".key_fingerprint");
         if sentinel.exists() || fingerprint.exists() {
             return Err(concat!(
-                "POLICY INTEGRITY CHECK FAILED — signing key or signature file is missing.\n",
-                "  This may indicate an attempt to bypass policy enforcement by deleting key files.\n",
-                "  To restore: run 'kiteguard policy sign' to re-establish the signature.\n",
+                "POLICY INTEGRITY CHECK FAILED.\n",
+                "  Run 'kiteguard policy sign' to re-establish the policy signature.\n",
                 "  All actions are blocked until the signature is restored (fail-closed)."
             ).into());
         }

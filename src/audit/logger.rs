@@ -23,7 +23,7 @@ const MAX_ROTATED: u8 = 3;
 ///
 /// Tampering with any entry breaks all subsequent hashes. Verify with
 /// `kiteguard audit verify`.
-pub fn log(hook_event: &str, raw_input: &str, verdict: &Verdict) -> Result<()> {
+pub fn log(hook_event: &str, raw_input: &str, verdict: &Verdict, client: &str) -> Result<()> {
     let log_dir = log_dir();
     fs::create_dir_all(&log_dir)?;
 
@@ -65,39 +65,56 @@ Audit log may be readable by other local users.",
     };
 
     // Build the entry body — the string we will hash (no "hash" field yet).
-    // json_str() ensures all values are properly JSON-escaped.
-    let entry_body = format!(
-        "{{\"ts\":{ts},\"seq\":{seq},\"hook\":{hook},\"verdict\":{verdict},\"rule\":{rule},\
-\"reason\":{reason},\"user\":{user},\"host\":{host},\"repo\":{repo},\
-\"input_hash\":\"{input_hash}\",\"prev_hash\":\"{prev_hash}\"}}",
-        ts = json_str(&crate::util::timestamp()),
-        seq = seq,
-        hook = json_str(hook_event),
-        verdict = json_str(verdict.as_str()),
-        rule = json_str(rule),
-        reason = json_str(reason),
-        user = json_str(&identity::user()),
-        host = json_str(&identity::host()),
-        repo = json_str(&identity::repo()),
-        input_hash = crate::crypto::sha256_hex(raw_input.as_bytes()),
-        prev_hash = prev_hash,
-    );
+    // Use serde_json to guarantee proper escaping and single-line output.
+    let body_value = serde_json::json!({
+        "ts":         crate::util::timestamp(),
+        "seq":        seq,
+        "client":     client,
+        "hook":       hook_event,
+        "verdict":    verdict.as_str(),
+        "rule":       rule,
+        "reason":     reason,
+        "user":       identity::user(),
+        "host":       identity::host(),
+        "repo":       identity::repo(),
+        "input_hash": crate::crypto::sha256_hex(raw_input.as_bytes()),
+        "prev_hash":  prev_hash,
+    });
+    let entry_body = serde_json::to_string(&body_value)
+        .map_err(|e| format!("audit log serialization error: {}", e))?;
 
     // Hash the body and append it as the last field — this is the chain link.
     let hash = crate::crypto::sha256_hex(entry_body.as_bytes());
-    let entry = format!(
-        r#"{},"hash":"{}"}}"#,
-        entry_body.strip_suffix('}').unwrap_or(&entry_body),
-        hash
-    );
+    let mut full_value: serde_json::Value = serde_json::from_str(&entry_body)
+        .map_err(|e| format!("audit log parse error: {}", e))?;
+    full_value["hash"] = serde_json::Value::String(hash);
+    let entry = serde_json::to_string(&full_value)
+        .map_err(|e| format!("audit log serialization error: {}", e))?;
 
-    let mut file = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&log_path)?;
+    // Open with mode 0o600 at creation time to eliminate the TOCTOU window
+    // between file creation and a subsequent set_permissions call (L-1 fix).
+    // On non-Unix the fallback omits the mode; permissions are still set below.
+    let mut file = {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            OpenOptions::new()
+                .create(true)
+                .append(true)
+                .mode(0o600)
+                .open(&log_path)?
+        }
+        #[cfg(not(unix))]
+        {
+            OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&log_path)?
+        }
+    };
 
-    // Keep the log file owner-only (chmod 600). This is a no-op on subsequent
-    // opens; on first creation it overrides the process umask.
+    // Belt-and-suspenders: also call set_permissions so pre-existing log files
+    // created before this fix are tightened up on the next write.
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -117,6 +134,22 @@ Audit log may be readable by other local users.",
     // Update the O(1) sidecar so the next invocation skips the full-file read.
     let sidecar = log_path.with_extension("log.tail");
     let _ = fs::write(&sidecar, &entry);
+    // Restrict sidecar to owner-only — it contains a full audit entry with
+    // identity metadata and must have the same protection as the main log.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if let Err(e) =
+            std::fs::set_permissions(&sidecar, std::fs::Permissions::from_mode(0o600))
+        {
+            eprintln!(
+                "kiteguard: WARNING — could not restrict sidecar permissions ({}): {}. \
+Audit sidecar may be readable by other local users.",
+                sidecar.display(),
+                e
+            );
+        }
+    }
 
     Ok(())
 }
@@ -212,12 +245,6 @@ fn maybe_rotate(log_path: &std::path::Path) -> Result<()> {
     Ok(())
 }
 
-/// Wraps a string as a JSON string literal with proper escaping.
-/// Returns `"value"` including the surrounding quotes.
-fn json_str(s: &str) -> String {
-    serde_json::Value::String(s.to_string()).to_string()
-}
-
 mod identity {
     /// Current OS username.
     pub fn user() -> String {
@@ -258,13 +285,23 @@ mod identity {
 
     /// Git repo root of the current working directory (best-effort).
     pub fn repo() -> String {
-        // Use absolute path to avoid PATH-hijacking; sanitize PATH for subprocess.
+        // Prefer the project directory set by the active CLI runtime — avoids a subprocess.
+        for var in &["GEMINI_PROJECT_DIR", "CLAUDE_PROJECT_DIR"] {
+            if let Ok(dir) = std::env::var(var) {
+                if !dir.is_empty() {
+                    return dir;
+                }
+            }
+        }
+        // Fall back to git rev-parse for Claude Code and VS Code Copilot.
         let git_bin = if std::path::Path::new("/usr/bin/git").exists() {
             "/usr/bin/git"
         } else if std::path::Path::new("/usr/local/bin/git").exists() {
             "/usr/local/bin/git"
         } else {
-            "git" // last resort — PATH-relative, but git not critical for security
+            // Cannot locate git at a known absolute path — skip rather than
+            // fall back to a PATH-relative lookup that could be hijacked.
+            return String::new();
         };
         std::process::Command::new(git_bin)
             .env("PATH", "/usr/bin:/bin:/usr/local/bin")

@@ -214,6 +214,17 @@ pub fn send(config: &WebhookConfig, hook_event: &str, verdict: &Verdict) -> Resu
         return Ok(());
     }
 
+    // Enforce HTTPS — webhook body contains identity metadata (user, host, repo).
+    // Sending over plain HTTP exposes that data to network interception.
+    if !config.url.starts_with("https://") {
+        eprintln!(
+            "kiteguard: ERROR — webhook URL must use HTTPS to protect audit metadata \
+(user/host/repo). Refusing to send over plaintext HTTP. \
+Update 'webhook.url' in your policy to start with 'https://'."
+        );
+        return Ok(());
+    }
+
     // SSRF guard — never POST to private/metadata endpoints.
     if !is_ssrf_safe(&config.url) {
         eprintln!(
@@ -239,43 +250,98 @@ pub fn send(config: &WebhookConfig, hook_event: &str, verdict: &Verdict) -> Resu
     .to_string();
 
     // Resolve token. If token starts with '$', read from the named env var.
-    // Warn loudly when the variable is unset — silent unauthenticated sends
-    // would mean audit events reach the SIEM without any bearer token.
-    let resolved_token: Option<String> = config.token.as_ref().and_then(|t| {
-        if let Some(var_name) = t.strip_prefix('$') {
-            match std::env::var(var_name) {
-                Ok(val) if !val.is_empty() => Some(val),
-                _ => {
-                    eprintln!(
-                        "kiteguard: WARNING — webhook token env var '{}' is not set or empty; \
-sending event without authentication",
-                        var_name
-                    );
-                    None
+    // Abort the send when the variable is unset — sending without a bearer
+    // token would mean unauthenticated audit events reaching the SIEM.
+    let resolved_token: Option<String> = match config.token.as_deref() {
+        None => None,
+        Some(t) => {
+            if let Some(var_name) = t.strip_prefix('$') {
+                match std::env::var(var_name) {
+                    Ok(val) if !val.is_empty() => Some(val),
+                    _ => {
+                        eprintln!(
+                            "kiteguard: ERROR — webhook token env var '{}' is not set or empty; \
+aborting webhook send to prevent unauthenticated audit event transmission. \
+Set the '{}' environment variable or remove the token field from your webhook config.",
+                            var_name, var_name
+                        );
+                        return Ok(());
+                    }
                 }
+            } else {
+                Some(t.to_string())
             }
-        } else {
-            Some(t.clone())
         }
-    });
+    };
 
     let has_token = resolved_token
         .as_ref()
         .map(|t| !t.is_empty())
         .unwrap_or(false);
 
+    // Resolve curl to an absolute path so $PATH cannot be hijacked (H-2).
+    // Check canonical locations including Homebrew (Apple Silicon / Intel Mac)
+    // and MacPorts; abort silently (best-effort) if absent.
+    let curl_path = if std::path::Path::new("/usr/bin/curl").exists() {
+        std::path::PathBuf::from("/usr/bin/curl")
+    } else if std::path::Path::new("/usr/local/bin/curl").exists() {
+        std::path::PathBuf::from("/usr/local/bin/curl")
+    } else if std::path::Path::new("/opt/homebrew/bin/curl").exists() {
+        std::path::PathBuf::from("/opt/homebrew/bin/curl")
+    } else if std::path::Path::new("/opt/local/bin/curl").exists() {
+        std::path::PathBuf::from("/opt/local/bin/curl")
+    } else {
+        return Ok(()); // curl not available — best-effort
+    };
+
+    // Write the request body to a private temp file so it never appears in
+    // /proc/<pid>/cmdline or `ps aux` output (H-1).
+    // The file is created with mode 0o600 (owner-readable only).
+    let tmp_path = std::env::temp_dir()
+        .join(format!("kiteguard-webhook-{}.json", std::process::id()));
+    {
+        use std::io::Write as _;
+        let open_result: std::io::Result<std::fs::File> = {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .truncate(true)
+                    .mode(0o600)
+                    .open(&tmp_path)
+            }
+            #[cfg(not(unix))]
+            {
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .write(true)
+                    .truncate(true)
+                    .open(&tmp_path)
+            }
+        };
+        match open_result {
+            Ok(mut f) => {
+                if f.write_all(body.as_bytes()).is_err() {
+                    let _ = std::fs::remove_file(&tmp_path);
+                    return Ok(());
+                }
+            }
+            Err(_) => return Ok(()),
+        }
+    }
+
     // Build curl command using direct CLI arguments.
     //
     // Security rationale:
-    // • URL is passed as a positional argument (never embedded in a config-file
-    //   format string), eliminating any curl config-file injection risk.
-    // • --max-time 3 enforces a hard socket-level timeout so a slow/malicious
-    //   endpoint cannot stall the Claude Code pipeline for more than 3 seconds.
-    // • The Authorization header is the only value written to -K stdin, and its
-    //   content is sanitized to strip newlines/quotes, so there is nothing to
-    //   inject into on subsequent config lines.
+    // • Absolute curl path — not resolved via $PATH (H-2 fix).
+    // • Body passed via --data @<file> — never in argv (H-1 fix).
+    // • URL is a positional argument (never embedded in config-file syntax).
+    // • --max-time 3 caps socket-level blocking to 3 seconds.
+    // • Authorization is passed via -K stdin (sanitized header value only).
     use std::process::Stdio;
-    let mut cmd = std::process::Command::new("curl");
+    let mut cmd = std::process::Command::new(&curl_path);
     cmd.arg("-s")
         .arg("--max-time")
         .arg("3")
@@ -285,8 +351,8 @@ sending event without authentication",
         .arg("Content-Type: application/json")
         .arg("-H")
         .arg("User-Agent: kiteguard/0.1.0")
-        .arg("--data-raw")
-        .arg(&body);
+        .arg("--data")
+        .arg(format!("@{}", tmp_path.display()));
 
     if has_token {
         // Token via -K stdin keeps it out of `ps aux`.
@@ -302,7 +368,10 @@ sending event without authentication",
 
     let mut child = match cmd.spawn() {
         Ok(c) => c,
-        Err(_) => return Ok(()), // curl not available — best-effort
+        Err(_) => {
+            let _ = std::fs::remove_file(&tmp_path);
+            return Ok(()); // curl not available — best-effort
+        }
     };
 
     if has_token {
@@ -321,6 +390,7 @@ abort webhook send",
                         e
                     );
                     let _ = child.kill();
+                    let _ = std::fs::remove_file(&tmp_path);
                     return Ok(());
                 }
                 // Drop stdin here to signal EOF so curl starts the request.
@@ -344,6 +414,9 @@ abort webhook send",
             Err(_) => break,
         }
     }
+
+    // Remove the temp body file now that curl has finished (or been killed).
+    let _ = std::fs::remove_file(&tmp_path);
     Ok(())
 }
 
@@ -356,4 +429,124 @@ fn sanitize_curl_header_value(s: &str) -> String {
     s.chars()
         .filter(|c| *c != '\n' && *c != '\r' && *c != '"' && *c != '\0')
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- is_ssrf_safe: safe URLs ---
+
+    #[test]
+    fn safe_public_url_allowed() {
+        assert!(is_ssrf_safe("https://example.com/api"));
+    }
+
+    #[test]
+    fn safe_github_allowed() {
+        assert!(is_ssrf_safe("https://github.com/rust-lang/rust"));
+    }
+
+    // --- is_ssrf_safe: blocked by hostname string-match ---
+
+    #[test]
+    fn blocks_aws_metadata_by_hostname() {
+        assert!(!is_ssrf_safe("http://169.254.169.254/latest/meta-data/"));
+    }
+
+    #[test]
+    fn blocks_gcp_metadata_by_hostname() {
+        assert!(!is_ssrf_safe("http://metadata.google.internal/computeMetadata/v1/"));
+    }
+
+    #[test]
+    fn blocks_localhost() {
+        assert!(!is_ssrf_safe("http://localhost:8080/"));
+    }
+
+    #[test]
+    fn blocks_ipv6_loopback_bracket() {
+        assert!(!is_ssrf_safe("http://[::1]/admin"));
+    }
+
+    // --- is_ssrf_safe: blocked by IP-level CIDR ---
+
+    #[test]
+    fn blocks_loopback_standard() {
+        assert!(!is_ssrf_safe("http://127.0.0.1/"));
+    }
+
+    #[test]
+    fn blocks_loopback_hex() {
+        assert!(!is_ssrf_safe("http://0x7f000001/"));
+    }
+
+    #[test]
+    fn blocks_loopback_decimal_int() {
+        assert!(!is_ssrf_safe("http://2130706433/"));
+    }
+
+    #[test]
+    fn blocks_loopback_octal_dotted() {
+        assert!(!is_ssrf_safe("http://0177.0.0.1/"));
+    }
+
+    #[test]
+    fn blocks_private_10_range() {
+        assert!(!is_ssrf_safe("http://10.0.0.1/"));
+    }
+
+    #[test]
+    fn blocks_private_172_range() {
+        assert!(!is_ssrf_safe("http://172.16.0.1/"));
+    }
+
+    #[test]
+    fn blocks_private_192_168() {
+        assert!(!is_ssrf_safe("http://192.168.1.1/"));
+    }
+
+    #[test]
+    fn blocks_link_local() {
+        assert!(!is_ssrf_safe("http://169.254.1.1/"));
+    }
+
+    // --- is_ssrf_safe: percent-encoded bypass attempts ---
+
+    #[test]
+    fn blocks_percent_encoded_loopback() {
+        assert!(!is_ssrf_safe("http://127%2e0%2e0%2e1/"));
+    }
+
+    #[test]
+    fn blocks_double_percent_encoded_loopback() {
+        assert!(!is_ssrf_safe("http://127%252e0%252e0%252e1/"));
+    }
+
+    // --- sanitize_curl_header_value ---
+
+    #[test]
+    fn sanitize_strips_newline() {
+        assert_eq!(sanitize_curl_header_value("tok\nheader:evil"), "tokheader:evil");
+    }
+
+    #[test]
+    fn sanitize_strips_carriage_return() {
+        assert_eq!(sanitize_curl_header_value("tok\rheader"), "tokheader");
+    }
+
+    #[test]
+    fn sanitize_strips_null_byte() {
+        assert_eq!(sanitize_curl_header_value("tok\0abc"), "tokabc");
+    }
+
+    #[test]
+    fn sanitize_strips_quotes() {
+        assert_eq!(sanitize_curl_header_value("to\"ken"), "token");
+    }
+
+    #[test]
+    fn sanitize_clean_token_unchanged() {
+        assert_eq!(sanitize_curl_header_value("mytoken123"), "mytoken123");
+    }
 }

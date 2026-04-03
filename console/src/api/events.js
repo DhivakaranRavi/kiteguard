@@ -12,6 +12,7 @@ export async function fetchEvents(params = {}) {
   if (params.limit)   query.set('limit',   params.limit)
   if (params.verdict) query.set('verdict', params.verdict)
   if (params.hook)    query.set('hook',    params.hook)
+  if (params.client)  query.set('client',  params.client)
   const res = await fetch(`${BASE}/api/events?${query}`)
   if (!res.ok) throw new Error('Failed to fetch events')
   return res.json()

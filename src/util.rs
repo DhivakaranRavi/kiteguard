@@ -1,11 +1,74 @@
 use std::path::PathBuf;
 
+/// Verbose tracing macro — writes to stderr AND ~/.kiteguard/verbose.log when KITEGUARD_VERBOSE=1.
+/// Gemini CLI swallows hook stderr, so logging to a file lets you `tail -f` the trace live.
+/// Output never goes to stdout (reserved for Gemini CLI JSON responses).
+#[macro_export]
+macro_rules! vlog {
+    ($($arg:tt)*) => {
+        if std::env::var("KITEGUARD_VERBOSE").as_deref() == Ok("1") {
+            let msg = format!($($arg)*);
+            // Strip ASCII control characters to prevent terminal escape injection
+            // from attacker-controlled prompt/path content in verbose output.
+            let msg: String = msg.chars()
+                .map(|c| if c.is_ascii_control() && c != '\t' { '?' } else { c })
+                .collect();
+            eprintln!("\x1b[2m[kiteguard:trace]\x1b[0m {}", msg);
+            // Also append to ~/.kiteguard/verbose.log so runtimes that swallow
+            // hook stderr (e.g. Gemini CLI) can still be inspected via:
+            //   tail -f ~/.kiteguard/verbose.log
+            if let Ok(home) = std::env::var("HOME") {
+                // Validate $HOME before using it as a path base (M-3).
+                // Use an `if` guard rather than `return` so the macro compiles
+                // in functions with any return type.
+                let home_ok = !home.is_empty()
+                    && std::path::Path::new(&home).is_absolute()
+                    && !home.contains("..");
+                if home_ok {
+                let log_path = std::path::Path::new(&home)
+                    .join(".kiteguard")
+                    .join("verbose.log");
+                use std::io::Write;
+                if let Ok(mut f) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&log_path)
+                {
+                    let _ = writeln!(f, "[kiteguard:trace] {}", msg);
+                    // Restrict to owner-only — verbose log may contain prompt
+                    // fragments that include PII or secrets.
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+                        let _ = std::fs::set_permissions(
+                            &log_path,
+                            std::fs::Permissions::from_mode(0o600),
+                        );
+                    }
+                }
+                } // end home_ok
+            }
+        }
+    };
+}
+
 /// Returns the user's home directory using the HOME environment variable.
-/// Panics if HOME is unset — falling back to cwd would silently write
-/// config/logs into an attacker-controlled directory.
+/// Exits if HOME is unset, empty, not absolute, or contains `..` components
+/// — falling back to cwd would silently write config/logs into an
+/// attacker-controlled directory (M-3: path-traversal via env var).
 pub fn home_dir() -> PathBuf {
     match std::env::var("HOME") {
-        Ok(h) if !h.is_empty() => PathBuf::from(h),
+        Ok(h) if !h.is_empty() => {
+            let p = PathBuf::from(&h);
+            if !p.is_absolute() || h.contains("..") {
+                eprintln!(
+                    "kiteguard: fatal — HOME environment variable contains an unsafe path: {:?}",
+                    h
+                );
+                std::process::exit(1);
+            }
+            p
+        }
         _ => {
             eprintln!("kiteguard: fatal — HOME environment variable is not set");
             std::process::exit(1);
