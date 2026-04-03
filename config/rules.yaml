@@ -1,6 +1,7 @@
 # kiteguard rules.yaml — Security Policy Configuration
-# Place this file at: ~/.kiteguard/rules.yaml
-# If not present, built-in secure defaults are used.
+# Copy this file to: ~/.kiteguard/rules.json  (must be JSON at runtime)
+# This YAML is provided as a readable reference — convert to JSON before use.
+# If ~/.kiteguard/rules.json is not present, built-in secure defaults are used.
 
 version: 1
 
@@ -16,38 +17,28 @@ bash:
     # Destructive filesystem operations
     - "rm\\s+-rf\\s+/"
     - "rm\\s+-rf\\s+~"
+    - "rm\\s+-rf\\s+\\$HOME"
     # Encoded command execution
     - "eval\\s*\\(.*base64"
-    - "echo\\s+.*\\|\\s*base64\\s+-d\\s*\\|\\s*(bash|sh)"
     # Reverse shells
     - "/dev/tcp/"
     - "nc\\s+-e\\s+/bin"
-    - "bash\\s+-i\\s+>&"
     # Privilege escalation
     - "chmod\\s+777"
-    - "sudo\\s+su\\s*$"
     # Cron/persistence
     - "crontab\\s+-"
-    - ">\\s*/etc/cron"
+    - ">\\s*/etc/"
 
 # ── File Path Protection ──────────────────────────────────────────────────────
 file_paths:
   block_read:
     - "**/.ssh/**"
     - "**/.aws/credentials"
-    - "**/.aws/config"
     - "**/.gnupg/**"
     - "**/.env"
-    - "**/.env.local"
-    - "**/.env.production"
     - "**/secrets/**"
     - "**/id_rsa"
     - "**/id_ed25519"
-    - "**/id_ecdsa"
-    - "**/*.pem"
-    - "**/*.key"
-    - "**/*.p12"
-    - "**/*.pfx"
 
   block_write:
     - "**/.claude/settings.json"   # self-protection: prevent hook removal
@@ -55,7 +46,12 @@ file_paths:
     - "**/.ssh/**"
     - "**/.aws/credentials"
     - "**/cron*"
-    - "/usr/local/bin/**"          # prevent binary replacement
+    # Shell startup files — prevent reverse-shell persistence via profile injection
+    - "**/.bashrc"
+    - "**/.bash_profile"
+    - "**/.zshrc"
+    - "**/.profile"
+    - "**/.bash_logout"
 
 # ── PII Detection ─────────────────────────────────────────────────────────────
 pii:
@@ -63,13 +59,11 @@ pii:
   block_in_file_content: true    # stop PII in files Claude reads
   redact_in_response: true       # redact PII in Claude's responses
 
-  # Uncomment types you want enforced:
   types:
     - ssn
     - credit_card
     - email
     - phone
-    # - passport
 
 # ── URL / SSRF Protection ─────────────────────────────────────────────────────
 urls:
