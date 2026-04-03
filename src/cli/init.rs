@@ -72,6 +72,9 @@ Manually run: chmod 700 {}",
         }
     }
 
+    // Scaffold a rules.json with all default fields (only if one doesn't exist yet)
+    scaffold_rules_json(&config_dir)?;
+
     // Generate signing key (if none exists) and sign the current policy.
     // This establishes the integrity baseline — any future tampering is detected.
     sign_policy(&config_dir)?;
@@ -90,6 +93,121 @@ Manually run: chmod 700 {}",
     println!("\nEvery Claude Code session is now guarded.");
     println!("After editing rules.json, run: kiteguard policy sign");
 
+    Ok(())
+}
+
+/// Write a starter `rules.json` to `config_dir` only if one does not already
+/// exist. The scaffolded file includes every v0.2.0 field with comments-as-keys
+/// stripped (JSON has no comments — explanation lives in config/rules.yaml).
+fn scaffold_rules_json(config_dir: &std::path::Path) -> Result<()> {
+    let rules_path = config_dir.join("rules.json");
+    if rules_path.exists() {
+        return Ok(());
+    }
+
+    let default_policy = serde_json::json!({
+        "version": "1.0.0",
+        "bash": {
+            "enabled": true,
+            "block_on_error": true,
+            "block_patterns": [
+                "curl[^|]*\\|[^|]*(bash|sh)",
+                "wget[^|]*\\|[^|]*(bash|sh)",
+                "rm\\s+-rf\\s+/",
+                "rm\\s+-rf\\s+~",
+                "rm\\s+-rf\\s+\\$HOME",
+                "eval\\s*\\(.*base64",
+                "/dev/tcp/",
+                "nc\\s+-e\\s+/bin",
+                "chmod\\s+777",
+                ">\\s*/etc/",
+                "crontab\\s+-",
+                "python3?\\s+-c\\s+.*exec\\s*\\(",
+                "perl\\s+-e\\s+.{0,80}(system|exec|backtick|\\.open)",
+                "mkfifo.*&&.*nc",
+                "bash\\s+-i\\s+>&?",
+                "sh\\s+-i\\s+>&?",
+                "dd\\s+if=/dev/\\w+\\s+of=/dev/\\w+",
+                ":\\s*\\(\\s*\\)\\s*\\{\\s*:\\|:"
+            ],
+            "allow_patterns": []
+        },
+        "file_paths": {
+            "block_read": [
+                "**/.ssh/**",
+                "**/.aws/credentials",
+                "**/.gnupg/**",
+                "**/.env",
+                "**/secrets/**",
+                "**/id_rsa",
+                "**/id_ed25519"
+            ],
+            "allow_read": [],
+            "block_write": [
+                "**/.claude/settings.json",
+                "/etc/**",
+                "**/.ssh/**",
+                "**/.aws/credentials",
+                "**/cron*",
+                "**/.bashrc",
+                "**/.bash_profile",
+                "**/.zshrc",
+                "**/.profile",
+                "**/.bash_logout"
+            ],
+            "allow_write": []
+        },
+        "pii": {
+            "block_in_prompt": true,
+            "block_in_file_content": true,
+            "redact_in_response": true,
+            "types": ["ssn", "credit_card", "email", "phone"]
+        },
+        "urls": {
+            "blocklist": [
+                "169.254.169.254",
+                "metadata.google.internal",
+                "metadata.azure.com"
+            ],
+            "allowlist": []
+        },
+        "injection": {
+            "enabled": true
+        },
+        "webhook": {
+            "enabled": false,
+            "url": "",
+            "token": null,
+            "hmac_secret": null
+        }
+    });
+
+    let json = serde_json::to_string_pretty(&default_policy)
+        .map_err(|e| format!("Failed to serialise default policy: {}", e))?;
+
+    #[cfg(unix)]
+    {
+        use std::io::Write;
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&rules_path)
+            .map_err(|e| format!("Failed to create rules.json: {}", e))?;
+        f.write_all(json.as_bytes())
+            .map_err(|e| format!("Failed to write rules.json: {}", e))?;
+    }
+    #[cfg(not(unix))]
+    {
+        fs::write(&rules_path, &json).map_err(|e| format!("Failed to write rules.json: {}", e))?;
+    }
+
+    println!(
+        "  rules.json:           {} (edit to customise policy)",
+        rules_path.display()
+    );
     Ok(())
 }
 
