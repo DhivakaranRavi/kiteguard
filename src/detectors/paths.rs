@@ -53,6 +53,12 @@ pub fn scan_write(path: &str, block_patterns: &[String]) -> Option<Verdict> {
     None
 }
 
+/// Returns true if `path` matches any of the allowlist glob patterns.
+/// Used to implement explicit-allow semantics (allowlist wins over blocklist).
+pub fn is_glob_allowed(path: &str, allow_patterns: &[String]) -> bool {
+    matches_any(path, allow_patterns)
+}
+
 fn matches_any(path: &str, patterns: &[String]) -> bool {
     let expanded = expand_home(path);
 

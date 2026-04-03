@@ -4,19 +4,23 @@ Place your config at `~/.kiteguard/rules.json`. If not present, secure built-in 
 
 Run `kiteguard policy path` to see the exact location.
 
-## Full schema
+## Full schema (v0.2.0)
 
 ```json
 {
-  "version": 1,
+  "version": "1.0.0",
+  "remote_policy_url": null,
   "bash": {
     "enabled": true,
     "block_on_error": true,
-    "block_patterns": []
+    "block_patterns": [],
+    "allow_patterns": []
   },
   "file_paths": {
     "block_read": [],
-    "block_write": []
+    "allow_read": [],
+    "block_write": [],
+    "allow_write": []
   },
   "pii": {
     "block_in_prompt": true,
@@ -25,7 +29,8 @@ Run `kiteguard policy path` to see the exact location.
     "types": ["ssn", "credit_card", "email", "phone"]
   },
   "urls": {
-    "blocklist": []
+    "blocklist": [],
+    "allowlist": []
   },
   "injection": {
     "enabled": true
@@ -33,8 +38,34 @@ Run `kiteguard policy path` to see the exact location.
   "webhook": {
     "enabled": false,
     "url": "",
-    "token": ""
+    "token": null,
+    "hmac_secret": null
   }
+}
+```
+
+## New fields in v0.2.0
+
+| Field | Description |
+|---|---|
+| `version` | String label recorded in every audit log entry (e.g. `"1.0.0"`) |
+| `remote_policy_url` | Fetch policy from a remote HTTPS URL on startup. Override with `KITEGUARD_POLICY_URL` env var |
+| `bash.allow_patterns` | Regex patterns whose matches are always allowed, even if they also match a `block_pattern` |
+| `file_paths.allow_read` | Glob patterns always allowed, even if they match `block_read` |
+| `file_paths.allow_write` | Glob patterns always allowed, even if they match `block_write` |
+| `urls.allowlist` | URL substrings always allowed, even if they match `blocklist` |
+| `webhook.hmac_secret` | HMAC-SHA256 signing secret — adds `X-KiteGuard-Signature` header to every POST |
+
+## Allow rules
+
+Allow rules are checked **before** block rules. If an input matches an allow rule, it is permitted regardless of any matching block rule.
+
+This enables fine-grained exceptions without disabling entire detectors:
+
+```json
+"bash": {
+  "block_patterns": ["curl[^|]*\\|[^|]*(bash|sh)"],
+  "allow_patterns": ["curl.*api\\.myorg\\.com.*\\|\\ bash"]
 }
 ```
 

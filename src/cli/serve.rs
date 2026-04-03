@@ -106,6 +106,7 @@ struct StatsResponse {
     blocks: usize,
     allows: usize,
     today: usize,
+    tokens_total: u64,
     threat_breakdown: HashMap<String, usize>,
     hourly: Vec<HourlyBucket>,
 }
@@ -174,6 +175,7 @@ async fn stats_handler() -> Response {
     let mut blocks = 0usize;
     let mut allows = 0usize;
     let mut today = 0usize;
+    let mut tokens_total = 0u64;
     let mut threat_breakdown: HashMap<String, usize> = HashMap::new();
     // last 24 hourly buckets
     let mut hourly: HashMap<String, usize> = HashMap::new();
@@ -191,6 +193,11 @@ async fn stats_handler() -> Response {
 
         if ts.starts_with(&today_prefix) {
             today += 1;
+        }
+
+        // Accumulate token counts written by the audit logger (v0.3+).
+        if let Some(t) = e.get("tokens_in").and_then(|v| v.as_u64()) {
+            tokens_total += t;
         }
 
         // Threat type = rule name prefix (e.g. "secrets_leak" → "secrets")
@@ -221,6 +228,7 @@ async fn stats_handler() -> Response {
         blocks,
         allows,
         today,
+        tokens_total,
         threat_breakdown,
         hourly: hourly_vec,
     })

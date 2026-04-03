@@ -1,5 +1,5 @@
 <template>
-  <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+  <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
     <div
       v-for="card in cards"
       :key="card.label"
@@ -54,6 +54,19 @@ const cards = computed(() => [
     sub: `// ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
     classes: 'border-retro-amber bg-retro-amber-dim text-retro-amber',
     valClass: 'text-retro-amber glow-amber',
+  },
+  {
+    label: 'Tokens ~',
+    value: props.stats.tokens_total != null
+      ? props.stats.tokens_total >= 1_000_000
+        ? (props.stats.tokens_total / 1_000_000).toFixed(1) + 'M'
+        : props.stats.tokens_total >= 1_000
+          ? (props.stats.tokens_total / 1_000).toFixed(1) + 'K'
+          : props.stats.tokens_total
+      : '---',
+    sub: '// est. input tokens',
+    classes: 'border-retro-green bg-retro-green-dim text-retro-green',
+    valClass: 'text-retro-green glow-green',
   },
 ])
 </script>
