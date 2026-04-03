@@ -103,5 +103,4 @@ jobs:
           files: |
             artifacts/**/*.tar.gz
             artifacts/**/*.sha256
-            artifacts/checksums.sha256
           generate_release_notes: true
