@@ -38,11 +38,15 @@ pub fn handle(input: &str, policy: &Policy) -> Result<Verdict> {
         // File content — scan for PII, secrets, injection
         "Read" | "readFile" | "read_file" => evaluator::evaluate_file_content(&content, policy),
         // Web content — scan for injection, secrets
-        "WebFetch" | "fetch" | "web_search" | "web_browse" | "http_request" => evaluator::evaluate_web_content(&content, policy),
+        "WebFetch" | "fetch" | "web_search" | "web_browse" | "http_request" => {
+            evaluator::evaluate_web_content(&content, policy)
+        }
         // Bash output — scan for secrets/PII that the command may have printed
         // (e.g. `cat ~/.ssh/id_rsa` output if BeforeTool was somehow bypassed)
         // Cursor: "Shell" maps to the bash output check.
-        "Bash" | "runInTerminal" | "run_bash" | "Shell" => evaluator::evaluate_bash_output(&content, policy),
+        "Bash" | "runInTerminal" | "run_bash" | "Shell" => {
+            evaluator::evaluate_bash_output(&content, policy)
+        }
         _ => Verdict::Allow,
     };
 
@@ -114,7 +118,10 @@ pub fn handle_shell_output(input: &str, policy: &Policy) -> Result<Verdict> {
         crate::vlog!("  afterShellExecution output empty — skip");
         return Ok(Verdict::Allow);
     }
-    crate::vlog!("  afterShellExecution output ({} chars)", payload.output.len());
+    crate::vlog!(
+        "  afterShellExecution output ({} chars)",
+        payload.output.len()
+    );
     Ok(evaluator::evaluate_bash_output(&payload.output, policy))
 }
 
@@ -137,8 +144,14 @@ pub fn handle_mcp_output(input: &str, policy: &Policy) -> Result<Verdict> {
         crate::vlog!("  afterMCPExecution result_json empty — skip");
         return Ok(Verdict::Allow);
     }
-    crate::vlog!("  afterMCPExecution result_json ({} chars)", payload.result_json.len());
-    Ok(evaluator::evaluate_file_content(&payload.result_json, policy))
+    crate::vlog!(
+        "  afterMCPExecution result_json ({} chars)",
+        payload.result_json.len()
+    );
+    Ok(evaluator::evaluate_file_content(
+        &payload.result_json,
+        policy,
+    ))
 }
 
 #[cfg(test)]
@@ -150,8 +163,15 @@ mod cursor_tests {
 
     fn policy() -> Policy {
         Policy {
-            bash: BashPolicy { enabled: true, block_patterns: vec![], block_on_error: true },
-            file_paths: FilePathPolicy { block_read: vec![], block_write: vec![] },
+            bash: BashPolicy {
+                enabled: true,
+                block_patterns: vec![],
+                block_on_error: true,
+            },
+            file_paths: FilePathPolicy {
+                block_read: vec![],
+                block_write: vec![],
+            },
             pii: PiiPolicy {
                 block_in_prompt: false,
                 block_in_file_content: true,
@@ -170,7 +190,10 @@ mod cursor_tests {
     fn shell_output_with_private_key_blocked() {
         let input = r#"{"output": "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA"}"#;
         let v = handle_shell_output(input, &policy()).unwrap();
-        assert!(v.is_block(), "private key in shell output should be blocked");
+        assert!(
+            v.is_block(),
+            "private key in shell output should be blocked"
+        );
     }
 
     #[test]
@@ -191,14 +214,18 @@ mod cursor_tests {
     fn shell_output_missing_field_allowed() {
         let input = r#"{}"#;
         let v = handle_shell_output(input, &policy()).unwrap();
-        assert!(v.is_allow(), "missing output field defaults to empty and should allow");
+        assert!(
+            v.is_allow(),
+            "missing output field defaults to empty and should allow"
+        );
     }
 
     // ── handle_mcp_output ────────────────────────────────────────────────────
 
     #[test]
     fn mcp_output_with_aws_key_blocked() {
-        let input = r#"{"tool_name": "fetch", "result_json": "{\"token\": \"AKIAIOSFODNN7EXAMPLE\"}"}"#;
+        let input =
+            r#"{"tool_name": "fetch", "result_json": "{\"token\": \"AKIAIOSFODNN7EXAMPLE\"}"}"#;
         let v = handle_mcp_output(input, &policy()).unwrap();
         assert!(v.is_block(), "AWS key in MCP result should be blocked");
     }

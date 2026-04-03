@@ -14,7 +14,9 @@ const MAX_GLOB_CACHE: usize = 256;
 /// This catches prompts like "read ~/.ssh/id_rsa" before any tool is called.
 pub fn scan_prompt(prompt: &str, block_read: &[String]) -> Option<Verdict> {
     // Extract whitespace/quote-delimited tokens that look like paths
-    for token in prompt.split(|c: char| c.is_whitespace() || matches!(c, '"' | '\'' | '`' | ',' | ';')) {
+    for token in
+        prompt.split(|c: char| c.is_whitespace() || matches!(c, '"' | '\'' | '`' | ',' | ';'))
+    {
         let token = token.trim_matches(|c: char| matches!(c, '.' | ','));
         if (token.contains('/') || token.starts_with('~')) && !token.is_empty() {
             if matches_any(token, block_read) {

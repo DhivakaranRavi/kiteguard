@@ -26,8 +26,8 @@ pub fn handle(input: &str, policy: &Policy) -> Result<Verdict> {
             evaluator::evaluate_command(command, policy)
         }
         // Claude Code: "Write" / "Edit" | Copilot: "writeFile" / "editFile" / "editFiles" / "applyPatch" | Gemini: "write_file" / "replace"
-        "Write" | "Edit" | "writeFile" | "editFile" | "editFiles" | "applyPatch"
-        | "write_file" | "replace" => {
+        "Write" | "Edit" | "writeFile" | "editFile" | "editFiles" | "applyPatch" | "write_file"
+        | "replace" => {
             let path = payload.tool_input["file_path"]
                 .as_str()
                 .or_else(|| payload.tool_input["path"].as_str())
@@ -232,7 +232,9 @@ mod tests {
                 redact_in_response: false,
                 types: vec!["ssn".into(), "email".into(), "credit_card".into()],
             },
-            urls: UrlPolicy { blocklist: vec!["evil.com".to_string()] },
+            urls: UrlPolicy {
+                blocklist: vec!["evil.com".to_string()],
+            },
             injection: InjectionPolicy { enabled: true },
             webhook: None,
         }
@@ -295,7 +297,10 @@ mod tests {
     fn read_file_no_content_field_allowed() {
         let input = r#"{"file_path": "/home/user/readme.md"}"#;
         let v = handle_read_file(input, &policy()).unwrap();
-        assert!(v.is_allow(), "missing content defaults to empty and should allow");
+        assert!(
+            v.is_allow(),
+            "missing content defaults to empty and should allow"
+        );
     }
 
     // ── handle_tab_read ──────────────────────────────────────────────────────
@@ -334,12 +339,16 @@ mod tests {
     fn mcp_exec_dangerous_command_blocked() {
         let input = r#"{"tool_name": "shell", "command": "rm -rf /", "tool_input": ""}"#;
         let v = handle_mcp_exec(input, &policy()).unwrap();
-        assert!(v.is_block(), "dangerous MCP server command should be blocked");
+        assert!(
+            v.is_block(),
+            "dangerous MCP server command should be blocked"
+        );
     }
 
     #[test]
     fn mcp_exec_secret_in_tool_input_blocked() {
-        let input = r#"{"tool_name": "query", "tool_input": "{\"api_key\": \"AKIAIOSFODNN7EXAMPLE\"}"}"#;
+        let input =
+            r#"{"tool_name": "query", "tool_input": "{\"api_key\": \"AKIAIOSFODNN7EXAMPLE\"}"}"#;
         let v = handle_mcp_exec(input, &policy()).unwrap();
         assert!(v.is_block(), "AWS key in MCP tool_input should be blocked");
     }
@@ -355,6 +364,9 @@ mod tests {
     fn mcp_exec_no_url_no_command_allowed() {
         let input = r#"{"tool_name": "list_files", "tool_input": "{\"path\": \"/tmp\"}"}"#;
         let v = handle_mcp_exec(input, &policy()).unwrap();
-        assert!(v.is_allow(), "MCP call with no url/command should be allowed");
+        assert!(
+            v.is_allow(),
+            "MCP call with no url/command should be allowed"
+        );
     }
 }

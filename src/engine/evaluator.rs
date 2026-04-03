@@ -5,21 +5,30 @@ use crate::engine::{policy::Policy, verdict::Verdict};
 pub fn evaluate_prompt(prompt: &str, policy: &Policy) -> Verdict {
     crate::vlog!("  check:prompt ({} chars)", prompt.len());
     // Check if the prompt text itself references a blocked path
-    crate::vlog!("    detector:blocked_path_in_prompt ({} patterns)", policy.file_paths.block_read.len());
+    crate::vlog!(
+        "    detector:blocked_path_in_prompt ({} patterns)",
+        policy.file_paths.block_read.len()
+    );
     if let Some(v) = paths::scan_prompt(prompt, &policy.file_paths.block_read) {
         crate::vlog!("    ✗ BLOCKED by blocked_path_in_prompt");
         return v;
     }
     // Check if the prompt contains a dangerous bash command pattern
     if policy.bash.enabled {
-        crate::vlog!("    detector:bash_patterns_in_prompt ({} patterns)", policy.bash.block_patterns.len());
+        crate::vlog!(
+            "    detector:bash_patterns_in_prompt ({} patterns)",
+            policy.bash.block_patterns.len()
+        );
         if let Some(v) = commands::scan(prompt, &policy.bash.block_patterns) {
             crate::vlog!("    ✗ BLOCKED by bash_patterns_in_prompt");
             return v;
         }
     }
     // Check if the prompt mentions a blocked URL (SSRF, blocklisted domains)
-    crate::vlog!("    detector:url_in_prompt ({} entries)", policy.urls.blocklist.len());
+    crate::vlog!(
+        "    detector:url_in_prompt ({} entries)",
+        policy.urls.blocklist.len()
+    );
     if let Some(v) = urls::scan_prompt(prompt, &policy.urls.blocklist) {
         crate::vlog!("    ✗ BLOCKED by url_in_prompt");
         return v;
@@ -46,7 +55,10 @@ pub fn evaluate_prompt(prompt: &str, policy: &Policy) -> Verdict {
 pub fn evaluate_command(command: &str, policy: &Policy) -> Verdict {
     crate::vlog!("  check:command {:?}", command);
     if policy.bash.enabled {
-        crate::vlog!("    detector:bash_patterns ({} patterns)", policy.bash.block_patterns.len());
+        crate::vlog!(
+            "    detector:bash_patterns ({} patterns)",
+            policy.bash.block_patterns.len()
+        );
         if let Some(v) = commands::scan(command, &policy.bash.block_patterns) {
             crate::vlog!("    ✗ BLOCKED by bash_patterns");
             return v;
@@ -59,7 +71,10 @@ pub fn evaluate_command(command: &str, policy: &Policy) -> Verdict {
 /// Evaluate a file read path (PreToolUse → Read)
 pub fn evaluate_file_read(path: &str, policy: &Policy) -> Verdict {
     crate::vlog!("  check:read_path {:?}", path);
-    crate::vlog!("    detector:blocked_file_read ({} patterns)", policy.file_paths.block_read.len());
+    crate::vlog!(
+        "    detector:blocked_file_read ({} patterns)",
+        policy.file_paths.block_read.len()
+    );
     if let Some(v) = paths::scan_read(path, &policy.file_paths.block_read) {
         crate::vlog!("    ✗ BLOCKED by blocked_file_read");
         return v;
@@ -71,7 +86,10 @@ pub fn evaluate_file_read(path: &str, policy: &Policy) -> Verdict {
 /// Evaluate a file write path (PreToolUse → Write/Edit)
 pub fn evaluate_file_write(path: &str, policy: &Policy) -> Verdict {
     crate::vlog!("  check:write_path {:?}", path);
-    crate::vlog!("    detector:blocked_file_write ({} patterns)", policy.file_paths.block_write.len());
+    crate::vlog!(
+        "    detector:blocked_file_write ({} patterns)",
+        policy.file_paths.block_write.len()
+    );
     if let Some(v) = paths::scan_write(path, &policy.file_paths.block_write) {
         crate::vlog!("    ✗ BLOCKED by blocked_file_write");
         return v;
@@ -83,7 +101,10 @@ pub fn evaluate_file_write(path: &str, policy: &Policy) -> Verdict {
 /// Evaluate a URL (PreToolUse → WebFetch)
 pub fn evaluate_url(url: &str, policy: &Policy) -> Verdict {
     crate::vlog!("  check:url {:?}", url);
-    crate::vlog!("    detector:url_blocklist ({} entries)", policy.urls.blocklist.len());
+    crate::vlog!(
+        "    detector:url_blocklist ({} entries)",
+        policy.urls.blocklist.len()
+    );
     if let Some(v) = urls::scan(url, &policy.urls.blocklist) {
         crate::vlog!("    ✗ BLOCKED by url_blocklist");
         return v;

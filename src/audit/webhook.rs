@@ -297,8 +297,8 @@ Set the '{}' environment variable or remove the token field from your webhook co
     // Write the request body to a private temp file so it never appears in
     // /proc/<pid>/cmdline or `ps aux` output (H-1).
     // The file is created with mode 0o600 (owner-readable only).
-    let tmp_path = std::env::temp_dir()
-        .join(format!("kiteguard-webhook-{}.json", std::process::id()));
+    let tmp_path =
+        std::env::temp_dir().join(format!("kiteguard-webhook-{}.json", std::process::id()));
     {
         use std::io::Write as _;
         let open_result: std::io::Result<std::fs::File> = {
@@ -456,7 +456,9 @@ mod tests {
 
     #[test]
     fn blocks_gcp_metadata_by_hostname() {
-        assert!(!is_ssrf_safe("http://metadata.google.internal/computeMetadata/v1/"));
+        assert!(!is_ssrf_safe(
+            "http://metadata.google.internal/computeMetadata/v1/"
+        ));
     }
 
     #[test]
@@ -527,7 +529,10 @@ mod tests {
 
     #[test]
     fn sanitize_strips_newline() {
-        assert_eq!(sanitize_curl_header_value("tok\nheader:evil"), "tokheader:evil");
+        assert_eq!(
+            sanitize_curl_header_value("tok\nheader:evil"),
+            "tokheader:evil"
+        );
     }
 
     #[test]

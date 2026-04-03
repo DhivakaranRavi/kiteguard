@@ -106,7 +106,9 @@ mod tests {
 
     #[test]
     fn blocks_jwt() {
-        assert!(scan("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0.abc123def456abc123def456abc1").is_some());
+        assert!(
+            scan("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyIn0.abc123def456abc123def456abc1").is_some()
+        );
     }
 
     // --- Private key ---

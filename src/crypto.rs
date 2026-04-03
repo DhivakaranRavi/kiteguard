@@ -124,7 +124,11 @@ mod tests {
     fn hmac_verify_wrong_hex_fails() {
         let key = b"key";
         let data = b"data";
-        assert!(!hmac_verify(key, data, "0000000000000000000000000000000000000000000000000000000000000000"));
+        assert!(!hmac_verify(
+            key,
+            data,
+            "0000000000000000000000000000000000000000000000000000000000000000"
+        ));
     }
 
     // --- bytes_to_hex / hex_to_bytes roundtrip ---

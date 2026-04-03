@@ -41,9 +41,14 @@ fn extract_host(url: &str) -> String {
 /// Extracts http/https/ftp URLs from the prompt and checks each one.
 pub fn scan_prompt(prompt: &str, blocklist: &[String]) -> Option<Verdict> {
     // Extract tokens that look like URLs
-    for token in prompt.split(|c: char| c.is_whitespace() || matches!(c, '"' | '\'' | '`' | ',' | '<' | '>')) {
+    for token in
+        prompt.split(|c: char| c.is_whitespace() || matches!(c, '"' | '\'' | '`' | ',' | '<' | '>'))
+    {
         let token = token.trim_matches(|c: char| matches!(c, '.' | ')' | ']'));
-        if token.starts_with("http://") || token.starts_with("https://") || token.starts_with("ftp://") {
+        if token.starts_with("http://")
+            || token.starts_with("https://")
+            || token.starts_with("ftp://")
+        {
             if scan(token, blocklist).is_some() {
                 return Some(Verdict::block(
                     "blocked_url_in_prompt",

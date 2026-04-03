@@ -72,8 +72,15 @@ mod cursor_tests {
 
     fn policy() -> Policy {
         Policy {
-            bash: BashPolicy { enabled: false, block_patterns: vec![], block_on_error: false },
-            file_paths: FilePathPolicy { block_read: vec![], block_write: vec![] },
+            bash: BashPolicy {
+                enabled: false,
+                block_patterns: vec![],
+                block_on_error: false,
+            },
+            file_paths: FilePathPolicy {
+                block_read: vec![],
+                block_write: vec![],
+            },
             pii: PiiPolicy {
                 block_in_prompt: false,
                 block_in_file_content: false,

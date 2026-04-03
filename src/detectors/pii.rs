@@ -176,6 +176,10 @@ mod tests {
 
     #[test]
     fn allows_clean_text() {
-        assert!(scan("Please refactor this function to be more efficient.", &all_types()).is_none());
+        assert!(scan(
+            "Please refactor this function to be more efficient.",
+            &all_types()
+        )
+        .is_none());
     }
 }

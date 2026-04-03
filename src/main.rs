@@ -43,7 +43,8 @@ fn main() -> Result<()> {
         serde_json::from_str::<serde_json::Value>(&input)
             .ok()
             .and_then(|v| {
-                v["hookEventName"].as_str()
+                v["hookEventName"]
+                    .as_str()
                     .or_else(|| v["hook_event_name"].as_str())
                     .map(|s| s.to_string())
             })
@@ -66,9 +67,17 @@ fn main() -> Result<()> {
         "cursor"
     } else {
         let parsed = serde_json::from_str::<serde_json::Value>(&input).ok();
-        if parsed.as_ref().and_then(|v| v.get("hook_event_name")).is_some() {
+        if parsed
+            .as_ref()
+            .and_then(|v| v.get("hook_event_name"))
+            .is_some()
+        {
             "gemini"
-        } else if parsed.as_ref().and_then(|v| v.get("hookEventName")).is_some() {
+        } else if parsed
+            .as_ref()
+            .and_then(|v| v.get("hookEventName"))
+            .is_some()
+        {
             "copilot"
         } else {
             "unknown"
@@ -108,37 +117,49 @@ fn main() -> Result<()> {
     let verdict = match hook_event.as_str() {
         // Claude Code events (PascalCase, via CLAUDE_HOOK_EVENT env var)
         "UserPromptSubmit" => hooks::pre_prompt::handle(&input, &policy),
-        "PreToolUse"       => hooks::pre_tool::handle(&input, &policy),
-        "PostToolUse"      => hooks::post_tool::handle(&input, &policy),
-        "Stop"             => hooks::post_response::handle(&input, &policy),
+        "PreToolUse" => hooks::pre_tool::handle(&input, &policy),
+        "PostToolUse" => hooks::post_tool::handle(&input, &policy),
+        "Stop" => hooks::post_response::handle(&input, &policy),
         // Gemini CLI events — mapped to the same underlying handlers
-        "BeforeAgent"      => hooks::pre_prompt::handle(&input, &policy),
-        "BeforeTool"       => hooks::pre_tool::handle(&input, &policy),
-        "AfterTool"        => hooks::post_tool::handle(&input, &policy),
-        "AfterAgent"       => hooks::post_response::handle(&input, &policy),
+        "BeforeAgent" => hooks::pre_prompt::handle(&input, &policy),
+        "BeforeTool" => hooks::pre_tool::handle(&input, &policy),
+        "AfterTool" => hooks::post_tool::handle(&input, &policy),
+        "AfterAgent" => hooks::post_response::handle(&input, &policy),
         // Cursor events (camelCase, delivered via hook_event_name field)
-        "beforeSubmitPrompt"   => hooks::pre_prompt::handle(&input, &policy),
-        "preToolUse"           => hooks::pre_tool::handle(&input, &policy),
+        "beforeSubmitPrompt" => hooks::pre_prompt::handle(&input, &policy),
+        "preToolUse" => hooks::pre_tool::handle(&input, &policy),
         "beforeShellExecution" => hooks::pre_tool::handle_shell_exec(&input, &policy),
-        "beforeReadFile"       => hooks::pre_tool::handle_read_file(&input, &policy),
-        "postToolUse"          => hooks::post_tool::handle(&input, &policy),
-        "afterShellExecution"  => hooks::post_tool::handle_shell_output(&input, &policy),
-        "beforeMCPExecution"   => hooks::pre_tool::handle_mcp_exec(&input, &policy),
-        "afterMCPExecution"    => hooks::post_tool::handle_mcp_output(&input, &policy),
-        "beforeTabFileRead"    => hooks::pre_tool::handle_tab_read(&input, &policy),
+        "beforeReadFile" => hooks::pre_tool::handle_read_file(&input, &policy),
+        "postToolUse" => hooks::post_tool::handle(&input, &policy),
+        "afterShellExecution" => hooks::post_tool::handle_shell_output(&input, &policy),
+        "beforeMCPExecution" => hooks::pre_tool::handle_mcp_exec(&input, &policy),
+        "afterMCPExecution" => hooks::post_tool::handle_mcp_output(&input, &policy),
+        "beforeTabFileRead" => hooks::pre_tool::handle_tab_read(&input, &policy),
         // afterFileEdit carries edit strings, not file content — path check via preToolUse Write
-        "afterFileEdit"        => Ok(engine::verdict::Verdict::Allow),
-        "afterAgentResponse"   => hooks::post_response::handle_agent_response(&input, &policy),
+        "afterFileEdit" => Ok(engine::verdict::Verdict::Allow),
+        "afterAgentResponse" => hooks::post_response::handle_agent_response(&input, &policy),
         // Cursor stop payload has no transcript; afterAgentResponse covers response scanning
-        "stop"                 => Ok(engine::verdict::Verdict::Allow),
+        "stop" => Ok(engine::verdict::Verdict::Allow),
         // Advisory/lifecycle events (all runtimes) — no security action needed
-        "SessionStart" | "SessionEnd"
-        | "PreCompact" | "SubagentStart" | "SubagentStop"
-        | "BeforeModel" | "AfterModel" | "BeforeToolSelection"
-        | "PreCompress" | "Notification"
-        | "sessionStart" | "sessionEnd" | "preCompact"
-        | "subagentStart" | "subagentStop" | "postToolUseFailure"
-        | "afterAgentThought" | "afterTabFileRead" | "afterTabFileEdit" => Ok(engine::verdict::Verdict::Allow),
+        "SessionStart"
+        | "SessionEnd"
+        | "PreCompact"
+        | "SubagentStart"
+        | "SubagentStop"
+        | "BeforeModel"
+        | "AfterModel"
+        | "BeforeToolSelection"
+        | "PreCompress"
+        | "Notification"
+        | "sessionStart"
+        | "sessionEnd"
+        | "preCompact"
+        | "subagentStart"
+        | "subagentStop"
+        | "postToolUseFailure"
+        | "afterAgentThought"
+        | "afterTabFileRead"
+        | "afterTabFileEdit" => Ok(engine::verdict::Verdict::Allow),
         _ => Ok(engine::verdict::Verdict::Allow),
     };
 

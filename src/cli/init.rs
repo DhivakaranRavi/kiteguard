@@ -100,38 +100,36 @@ pub fn sign_policy(config_dir: &std::path::Path) -> Result<()> {
     let rules_path = config_dir.join("rules.json");
     let rules_content = fs::read_to_string(&rules_path).unwrap_or_default();
 
-    let key =
-        if key_path.exists() {
-            let hex = fs::read_to_string(&key_path)
-                .map_err(|e| format!("Failed to read policy key: {}", e))?;
-            crate::crypto::hex_to_bytes(hex.trim())
-                .ok_or("Policy key file is corrupted (invalid hex)")?
-        } else {
-            let key = generate_random_key()?;
-            let hex = crate::crypto::bytes_to_hex(&key);
-            // Write with 0o600 from creation to close the TOCTOU window where
-            // fs::write + chmod would briefly expose the key to other local users.
-            #[cfg(unix)]
-            {
-                use std::io::Write;
-                use std::os::unix::fs::OpenOptionsExt;
-                let mut f = std::fs::OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .mode(0o600)
-                    .open(&key_path)
-                    .map_err(|e| format!("Failed to write policy key: {}", e))?;
-                f.write_all(hex.as_bytes())
-                    .map_err(|e| format!("Failed to write policy key data: {}", e))?;
-            }
-            #[cfg(not(unix))]
-            {
-                fs::write(&key_path, &hex)
-                    .map_err(|e| format!("Failed to write policy key: {}", e))?;
-            }
-            key
-        };
+    let key = if key_path.exists() {
+        let hex = fs::read_to_string(&key_path)
+            .map_err(|e| format!("Failed to read policy key: {}", e))?;
+        crate::crypto::hex_to_bytes(hex.trim())
+            .ok_or("Policy key file is corrupted (invalid hex)")?
+    } else {
+        let key = generate_random_key()?;
+        let hex = crate::crypto::bytes_to_hex(&key);
+        // Write with 0o600 from creation to close the TOCTOU window where
+        // fs::write + chmod would briefly expose the key to other local users.
+        #[cfg(unix)]
+        {
+            use std::io::Write;
+            use std::os::unix::fs::OpenOptionsExt;
+            let mut f = std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(&key_path)
+                .map_err(|e| format!("Failed to write policy key: {}", e))?;
+            f.write_all(hex.as_bytes())
+                .map_err(|e| format!("Failed to write policy key data: {}", e))?;
+        }
+        #[cfg(not(unix))]
+        {
+            fs::write(&key_path, &hex).map_err(|e| format!("Failed to write policy key: {}", e))?;
+        }
+        key
+    };
 
     let sig = crate::crypto::hmac_sign(&key, rules_content.as_bytes());
     let sig_path = config_dir.join("policy.sig");
@@ -254,11 +252,13 @@ pub fn run_cursor() -> Result<()> {
     std::io::stdout().flush().ok();
 
     let mut input = String::new();
-    std::io::stdin().read_line(&mut input).map_err(|e| format!("Failed to read input: {}", e))?;
+    std::io::stdin()
+        .read_line(&mut input)
+        .map_err(|e| format!("Failed to read input: {}", e))?;
     let choice = input.trim();
 
     let install_project = matches!(choice, "" | "1" | "3");
-    let install_user    = matches!(choice, "" | "2" | "3");
+    let install_user = matches!(choice, "" | "2" | "3");
 
     if !install_project && !install_user {
         return Err(format!("Invalid choice '{}'. Please enter 1, 2, or 3.", choice).into());
@@ -300,8 +300,7 @@ pub fn run_cursor() -> Result<()> {
     // User-level: ~/.cursor/hooks.json
     if install_user {
         let user_dir = crate::util::home_dir().join(".cursor");
-        fs::create_dir_all(&user_dir)
-            .map_err(|e| format!("Could not create ~/.cursor/: {}", e))?;
+        fs::create_dir_all(&user_dir).map_err(|e| format!("Could not create ~/.cursor/: {}", e))?;
         let user_path = user_dir.join("hooks.json");
         fs::write(&user_path, &hook_json)
             .map_err(|e| format!("Could not write {}: {}", user_path.display(), e))?;
@@ -322,20 +321,32 @@ pub fn run_cursor() -> Result<()> {
     println!("kiteguard initialized for Cursor!");
     println!();
     if let Some(p) = project_path_opt {
-        println!("  Project hooks: {}", p.canonicalize().unwrap_or(p).display());
+        println!(
+            "  Project hooks: {}",
+            p.canonicalize().unwrap_or(p).display()
+        );
     }
     if let Some(u) = user_path_opt {
         println!("  User hooks:    {}", u.display());
     }
     println!("  Config dir:    {}", config_dir.display());
-    println!("  Audit log:     {}", config_dir.join("audit.log").display());
+    println!(
+        "  Audit log:     {}",
+        config_dir.join("audit.log").display()
+    );
     println!();
     println!("Next steps:");
     if install_project {
         println!("  1. Commit .cursor/hooks.json to your repo");
     }
-    println!("  {}. Reload Cursor — hooks load automatically on save", if install_project { 2 } else { 1 });
-    println!("  {}. Open Cursor agent mode — every tool call is now guarded", if install_project { 3 } else { 2 });
+    println!(
+        "  {}. Reload Cursor — hooks load automatically on save",
+        if install_project { 2 } else { 1 }
+    );
+    println!(
+        "  {}. Open Cursor agent mode — every tool call is now guarded",
+        if install_project { 3 } else { 2 }
+    );
     println!();
     println!("Debug: Cursor Settings → Hooks tab, or View → Output → 'Cursor Hooks'");
 
@@ -391,16 +402,14 @@ pub fn run_gemini(verbose: bool) -> Result<()> {
 
     // 1. Project-level: .gemini/settings.json (relative to cwd)
     let project_dir = std::path::PathBuf::from(".gemini");
-    fs::create_dir_all(&project_dir)
-        .map_err(|e| format!("Could not create .gemini/: {}", e))?;
+    fs::create_dir_all(&project_dir).map_err(|e| format!("Could not create .gemini/: {}", e))?;
     let project_path = project_dir.join("settings.json");
     fs::write(&project_path, &hook_json)
         .map_err(|e| format!("Could not write {}: {}", project_path.display(), e))?;
 
     // 2. User-level: ~/.gemini/settings.json (active for all projects)
     let user_dir = crate::util::home_dir().join(".gemini");
-    fs::create_dir_all(&user_dir)
-        .map_err(|e| format!("Could not create ~/.gemini/: {}", e))?;
+    fs::create_dir_all(&user_dir).map_err(|e| format!("Could not create ~/.gemini/: {}", e))?;
     let user_path = user_dir.join("settings.json");
     fs::write(&user_path, &hook_json)
         .map_err(|e| format!("Could not write {}: {}", user_path.display(), e))?;

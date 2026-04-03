@@ -10,24 +10,22 @@ pub fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
 
     match args.get(1).map(|s| s.as_str()) {
-        Some("init") => {
-            match args.get(2).map(|s| s.as_str()) {
-                Some("--claude-code") => init::run(),
-                Some("--cursor")      => init::run_cursor(),
-                Some("--gemini")     => {
-                    let verbose = args.iter().any(|a| a == "--verbose");
-                    init::run_gemini(verbose)
-                }
-                _ => {
-                    eprintln!("Usage: kiteguard init --claude-code | --cursor | --gemini [--verbose]");
-                    eprintln!();
-                    eprintln!("  --claude-code   Register hooks in ~/.claude/settings.json");
-                    eprintln!("  --cursor        Register hooks for Cursor (.cursor/hooks.json)");
-                    eprintln!("  --gemini        Register hooks for Gemini CLI");
-                    std::process::exit(1);
-                }
+        Some("init") => match args.get(2).map(|s| s.as_str()) {
+            Some("--claude-code") => init::run(),
+            Some("--cursor") => init::run_cursor(),
+            Some("--gemini") => {
+                let verbose = args.iter().any(|a| a == "--verbose");
+                init::run_gemini(verbose)
             }
-        }
+            _ => {
+                eprintln!("Usage: kiteguard init --claude-code | --cursor | --gemini [--verbose]");
+                eprintln!();
+                eprintln!("  --claude-code   Register hooks in ~/.claude/settings.json");
+                eprintln!("  --cursor        Register hooks for Cursor (.cursor/hooks.json)");
+                eprintln!("  --gemini        Register hooks for Gemini CLI");
+                std::process::exit(1);
+            }
+        },
         Some("serve") => {
             let port: u16 = args.get(2).and_then(|s| s.parse().ok()).unwrap_or(7070);
             serve::run(port)

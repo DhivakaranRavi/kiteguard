@@ -76,9 +76,9 @@ fn default_bash_patterns() -> Vec<String> {
     vec![
         r"curl[^|]*\|[^|]*(bash|sh)".into(),
         r"wget[^|]*\|[^|]*(bash|sh)".into(),
-        r"rm\s+-rf\s+/".into(),           // rm -rf /<anything>
-        r"rm\s+-rf\s+~".into(),           // rm -rf ~/... and rm -rf ~/.ssh etc.
-        r"rm\s+-rf\s+\$HOME".into(),      // rm -rf $HOME/...
+        r"rm\s+-rf\s+/".into(),      // rm -rf /<anything>
+        r"rm\s+-rf\s+~".into(),      // rm -rf ~/... and rm -rf ~/.ssh etc.
+        r"rm\s+-rf\s+\$HOME".into(), // rm -rf $HOME/...
         r"eval\s*\(.*base64".into(),
         r"/dev/tcp/".into(),
         r"nc\s+-e\s+/bin".into(),
@@ -230,7 +230,8 @@ fn verify_policy_signature(raw_content: &str) -> Result<()> {
                 "POLICY INTEGRITY CHECK FAILED.\n",
                 "  Run 'kiteguard policy sign' to re-establish the policy signature.\n",
                 "  All actions are blocked until the signature is restored (fail-closed)."
-            ).into());
+            )
+            .into());
         }
         return Ok(()); // Not yet signed — first run or pre-init
     }

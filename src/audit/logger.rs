@@ -85,8 +85,8 @@ Audit log may be readable by other local users.",
 
     // Hash the body and append it as the last field — this is the chain link.
     let hash = crate::crypto::sha256_hex(entry_body.as_bytes());
-    let mut full_value: serde_json::Value = serde_json::from_str(&entry_body)
-        .map_err(|e| format!("audit log parse error: {}", e))?;
+    let mut full_value: serde_json::Value =
+        serde_json::from_str(&entry_body).map_err(|e| format!("audit log parse error: {}", e))?;
     full_value["hash"] = serde_json::Value::String(hash);
     let entry = serde_json::to_string(&full_value)
         .map_err(|e| format!("audit log serialization error: {}", e))?;
@@ -139,9 +139,7 @@ Audit log may be readable by other local users.",
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        if let Err(e) =
-            std::fs::set_permissions(&sidecar, std::fs::Permissions::from_mode(0o600))
-        {
+        if let Err(e) = std::fs::set_permissions(&sidecar, std::fs::Permissions::from_mode(0o600)) {
             eprintln!(
                 "kiteguard: WARNING — could not restrict sidecar permissions ({}): {}. \
 Audit sidecar may be readable by other local users.",
