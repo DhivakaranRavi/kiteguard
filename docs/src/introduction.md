@@ -1,12 +1,6 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/kiteguard-logo-white.png" />
-    <source media="(prefers-color-scheme: light)" srcset="assets/kiteguard-logo-black.png" />
-    <img src="assets/kiteguard-logo-black.png" alt="kiteguard logo" width="160" />
-  </picture>
+  <img src="assets/kiteguard-logo-black.png" alt="kiteguard logo" width="160" />
 </p>
-
-# kiteguard
 
 > **Open-source** runtime security guardrails for Claude Code, Cursor, and Gemini CLI
 
