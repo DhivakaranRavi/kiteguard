@@ -1,8 +1,19 @@
 # kiteguard rules.yaml — Security Policy Configuration
-# Place this file at: ~/.kiteguard/rules.yaml
-# If not present, built-in secure defaults are used.
+# Copy this file to: ~/.kiteguard/rules.json  (must be JSON at runtime)
+# This YAML is provided as a readable reference — convert to JSON before use.
+# If ~/.kiteguard/rules.json is not present, built-in secure defaults are used.
+#
+# Run `kiteguard init` to scaffold this file automatically.
+# Run `kiteguard explain` to see every active rule in human-readable form.
+# Run `kiteguard test <type> <input>` to dry-run any input against the policy.
 
-version: 1
+# ── Policy Identity ───────────────────────────────────────────────────────────
+version: "1.0.0"                  # label recorded in every audit log entry
+
+# Remote policy URL (optional): fetch policy from a central server on startup.
+# Override at runtime with: KITEGUARD_POLICY_URL=https://... kiteguard
+# Must be HTTPS. Local file takes precedence if both are set.
+# remote_policy_url: "https://policy.yourorg.com/kiteguard/rules.json"
 
 # ── Bash Command Protection ───────────────────────────────────────────────────
 bash:
@@ -16,38 +27,50 @@ bash:
     # Destructive filesystem operations
     - "rm\\s+-rf\\s+/"
     - "rm\\s+-rf\\s+~"
+    - "rm\\s+-rf\\s+\\$HOME"
     # Encoded command execution
     - "eval\\s*\\(.*base64"
-    - "echo\\s+.*\\|\\s*base64\\s+-d\\s*\\|\\s*(bash|sh)"
     # Reverse shells
     - "/dev/tcp/"
     - "nc\\s+-e\\s+/bin"
-    - "bash\\s+-i\\s+>&"
     # Privilege escalation
     - "chmod\\s+777"
-    - "sudo\\s+su\\s*$"
     # Cron/persistence
     - "crontab\\s+-"
-    - ">\\s*/etc/cron"
+    - ">\\s*/etc/"
+    # Interpreter one-liners (v0.2)
+    - "python[23]?\\s+-c"
+    - "perl\\s+-e"
+    # Interactive reverse shells (v0.2)
+    - "bash\\s+-i\\s+>&"
+    - "sh\\s+-i\\s+>&"
+    # Named-pipe + netcat reverse shell (v0.2)
+    - "mkfifo.*nc"
+    # Raw disk cloning (v0.2)
+    - "dd\\s+if="
+    # Fork bomb (v0.2)
+    - ":\\(\\)\\s*\\{\\s*:\\|:"
+
+  # allow_patterns override block_patterns — checked first.
+  # Example: allow a specific safe curl usage
+  # allow_patterns:
+  #   - "curl\\s+https://api\\.myorg\\.com"
 
 # ── File Path Protection ──────────────────────────────────────────────────────
 file_paths:
   block_read:
     - "**/.ssh/**"
     - "**/.aws/credentials"
-    - "**/.aws/config"
     - "**/.gnupg/**"
     - "**/.env"
-    - "**/.env.local"
-    - "**/.env.production"
     - "**/secrets/**"
     - "**/id_rsa"
     - "**/id_ed25519"
-    - "**/id_ecdsa"
-    - "**/*.pem"
-    - "**/*.key"
-    - "**/*.p12"
-    - "**/*.pfx"
+
+  # allow_read overrides block_read — useful for whitelisting specific files.
+  # Example: allow reading a specific deploy key
+  # allow_read:
+  #   - "**/deploy_key.pub"
 
   block_write:
     - "**/.claude/settings.json"   # self-protection: prevent hook removal
@@ -55,7 +78,16 @@ file_paths:
     - "**/.ssh/**"
     - "**/.aws/credentials"
     - "**/cron*"
-    - "/usr/local/bin/**"          # prevent binary replacement
+    # Shell startup files — prevent reverse-shell persistence via profile injection
+    - "**/.bashrc"
+    - "**/.bash_profile"
+    - "**/.zshrc"
+    - "**/.profile"
+    - "**/.bash_logout"
+
+  # allow_write overrides block_write
+  # allow_write:
+  #   - "**/project/.env.local"
 
 # ── PII Detection ─────────────────────────────────────────────────────────────
 pii:
@@ -63,13 +95,11 @@ pii:
   block_in_file_content: true    # stop PII in files Claude reads
   redact_in_response: true       # redact PII in Claude's responses
 
-  # Uncomment types you want enforced:
   types:
     - ssn
     - credit_card
     - email
     - phone
-    # - passport
 
 # ── URL / SSRF Protection ─────────────────────────────────────────────────────
 urls:
@@ -80,6 +110,11 @@ urls:
     # Add your org's internal domains here to prevent exfiltration:
     # - "internal.yourcompany.com"
 
+  # allowlist overrides blocklist — checked first.
+  # Example: allow a specific internal metadata endpoint read-only
+  # allowlist:
+  #   - "https://allowed-internal.yourorg.com"
+
 # ── Prompt Injection Detection ────────────────────────────────────────────────
 injection:
   enabled: true
@@ -89,3 +124,6 @@ webhook:
   enabled: false
   url: ""
   token: ""               # sent as: Authorization: Bearer <token>
+  # hmac_secret signs every POST with X-KiteGuard-Signature: sha256=<hex>
+  # Use a $ENV_VAR reference to avoid storing secrets in the file:
+  # hmac_secret: "$KITEGUARD_WEBHOOK_SECRET"

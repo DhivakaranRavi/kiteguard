@@ -102,6 +102,12 @@ fn main() -> Result<()> {
             std::process::exit(2);
         }
     };
+
+    // Propagate the policy version to the audit logger so it's recorded in every entry.
+    if let Some(ref ver) = policy.version {
+        audit::logger::set_policy_version(ver);
+    }
+
     vlog!(
         "policy loaded — injection={} bash={} pii_prompt={} pii_file={} urls={} paths_read={} paths_write={}",
         policy.injection.enabled,

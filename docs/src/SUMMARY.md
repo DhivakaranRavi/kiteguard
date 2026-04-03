@@ -50,3 +50,4 @@
 - [Audit Log](reference/audit-log.md)
 - [Console](reference/console.md)
 - [Contributing](reference/contributing.md)
+- [Changelog](../../CHANGELOG.md)

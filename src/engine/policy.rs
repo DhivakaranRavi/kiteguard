@@ -15,6 +15,12 @@ pub struct Policy {
     #[serde(default)]
     pub injection: InjectionPolicy,
     pub webhook: Option<WebhookConfig>,
+    /// Optional semantic version tag for this policy (e.g. "1.2.0").
+    /// Recorded in the audit log so operators can correlate events to policy revisions.
+    pub version: Option<String>,
+    /// Fetch policy JSON from this HTTPS URL on startup (org-wide policy distribution).
+    /// Falls back to local rules.json when the fetch fails.
+    pub remote_policy_url: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -23,6 +29,10 @@ pub struct BashPolicy {
     pub enabled: bool,
     #[serde(default = "default_bash_patterns")]
     pub block_patterns: Vec<String>,
+    /// Commands that match any of these patterns are always allowed, even if they
+    /// also match a block pattern. Checked before block_patterns.
+    #[serde(default)]
+    pub allow_patterns: Vec<String>,
     #[serde(default = "default_true")]
     pub block_on_error: bool,
 }
@@ -33,6 +43,12 @@ pub struct FilePathPolicy {
     pub block_read: Vec<String>,
     #[serde(default = "default_block_write_paths")]
     pub block_write: Vec<String>,
+    /// Glob patterns that are always allowed even if they match a block_read pattern.
+    #[serde(default)]
+    pub allow_read: Vec<String>,
+    /// Glob patterns that are always allowed even if they match a block_write pattern.
+    #[serde(default)]
+    pub allow_write: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -51,6 +67,9 @@ pub struct PiiPolicy {
 pub struct UrlPolicy {
     #[serde(default = "default_blocked_domains")]
     pub blocklist: Vec<String>,
+    /// URL substrings or patterns that are always allowed regardless of blocklist.
+    #[serde(default)]
+    pub allowlist: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -64,6 +83,10 @@ pub struct WebhookConfig {
     pub enabled: bool,
     pub url: String,
     pub token: Option<String>,
+    /// HMAC-SHA256 signing secret. When set, every outbound webhook POST includes
+    /// an `X-KiteGuard-Signature: sha256=<hex>` header so receivers can verify
+    /// authenticity. Supports `$ENV_VAR` indirection.
+    pub hmac_secret: Option<String>,
 }
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
@@ -85,6 +108,14 @@ fn default_bash_patterns() -> Vec<String> {
         r"chmod\s+777".into(),
         r">\s*/etc/".into(),
         r"crontab\s+-".into(),
+        // ── v0.2 additions ──────────────────────────────────────────────────
+        r"python3?\s+-c\s+.*exec\s*\(".into(), // python -c 'exec(...)'
+        r"perl\s+-e\s+.{0,80}(system|exec|backtick|\.open)".into(), // perl one-liners
+        r"mkfifo.*&&.*nc".into(),              // named pipe + netcat reverse shell
+        r"bash\s+-i\s+>&?".into(),             // bash interactive reverse shell
+        r"sh\s+-i\s+>&?".into(),               // sh interactive reverse shell
+        r"dd\s+if=/dev/\w+\s+of=/dev/\w+".into(), // dd disk cloning
+        r":\s*\(\s*\)\s*\{\s*:\|:".into(),     // fork bomb
     ]
 }
 
@@ -136,6 +167,27 @@ fn default_blocked_domains() -> Vec<String> {
 // ── Loader ───────────────────────────────────────────────────────────────────
 
 pub fn load() -> Result<Policy> {
+    // If KITEGUARD_POLICY_URL is set, try fetching org-wide policy first.
+    // On any failure we fall through to local rules.json gracefully.
+    if let Ok(remote_url) = std::env::var("KITEGUARD_POLICY_URL") {
+        if !remote_url.is_empty() {
+            if let Some(remote_json) = fetch_remote_policy(&remote_url) {
+                match serde_json::from_str::<Policy>(&remote_json) {
+                    Ok(p) => {
+                        crate::vlog!("policy: loaded from remote URL {}", remote_url);
+                        return Ok(p);
+                    }
+                    Err(e) => {
+                        eprintln!(
+                            "kiteguard: remote policy parse error ({}): {} — falling back to local policy",
+                            remote_url, e
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     let config_path = config_path();
 
     // Resolve symlinks before reading to prevent a crafted symlink from
@@ -178,7 +230,7 @@ pub fn load() -> Result<Policy> {
             .map_err(|e| format!("Failed to parse rules.json: {}", e))?
     };
 
-    // Validate user-supplied bash patterns are compilable regexes.
+    // Validate user-supplied bash block_patterns are compilable regexes.
     // Important: validate with the (?i) prefix that commands.rs wraps them in,
     // so that inline-flag interactions (e.g. (?-i:...)) are caught here at load
     // time rather than silently failing in the hot path cache.
@@ -186,6 +238,16 @@ pub fn load() -> Result<Policy> {
         regex::Regex::new(&format!("(?i){}", pattern)).map_err(|e| {
             format!(
                 "Invalid regex in rules.json bash.block_patterns (with (?i) prefix): {:?}: {}",
+                pattern, e
+            )
+        })?;
+    }
+
+    // Validate allowlist patterns with same (?i) prefix.
+    for pattern in &policy.bash.allow_patterns {
+        regex::Regex::new(&format!("(?i){}", pattern)).map_err(|e| {
+            format!(
+                "Invalid regex in rules.json bash.allow_patterns (with (?i) prefix): {:?}: {}",
                 pattern, e
             )
         })?;
@@ -204,6 +266,63 @@ pub fn load() -> Result<Policy> {
     }
 
     Ok(policy)
+}
+
+/// Tries to fetch a remote policy from `url` using curl (best-effort).
+/// Returns the raw JSON body on success, or None on any failure.
+/// Uses a strict SSRF guard and enforces HTTPS.
+pub fn fetch_remote_policy(url: &str) -> Option<String> {
+    use crate::audit::webhook::is_ssrf_safe;
+
+    if !url.starts_with("https://") {
+        eprintln!("kiteguard: remote_policy_url must use HTTPS — skipping remote policy fetch");
+        return None;
+    }
+    if !is_ssrf_safe(url) {
+        eprintln!(
+            "kiteguard: remote_policy_url blocked (SSRF protection): {} — using local policy",
+            url
+        );
+        return None;
+    }
+
+    // Resolve curl to an absolute path (same logic as webhook.rs).
+    let curl_path = [
+        "/usr/bin/curl",
+        "/usr/local/bin/curl",
+        "/opt/homebrew/bin/curl",
+        "/opt/local/bin/curl",
+    ]
+    .iter()
+    .find(|p| std::path::Path::new(p).exists())
+    .copied()?;
+
+    let output = std::process::Command::new(curl_path)
+        .args([
+            "--silent",
+            "--max-time",
+            "5", // 5-second total timeout
+            "--connect-timeout",
+            "3",
+            "--max-filesize",
+            "65536", // 64 KB max policy size
+            "--proto",
+            "=https", // enforce HTTPS at curl level
+            "--tlsv1.2",
+            "-L",
+            url,
+        ])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        eprintln!(
+            "kiteguard: remote policy fetch failed (non-zero curl exit) — using local policy"
+        );
+        return None;
+    }
+
+    String::from_utf8(output.stdout).ok()
 }
 
 /// Verifies the HMAC-SHA256 signature over `raw_content`.

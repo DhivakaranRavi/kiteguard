@@ -1,5 +1,21 @@
 use crate::detectors::{commands, injection, paths, pii, secrets, urls};
 use crate::engine::{policy::Policy, verdict::Verdict};
+use regex::Regex;
+
+/// Returns true if `text` matches any of the allowlist patterns.
+/// An allowlist match short-circuits all block detectors — explicit allow wins.
+fn is_explicitly_allowed(text: &str, patterns: &[String]) -> bool {
+    for pattern in patterns {
+        if Regex::new(&format!("(?i){}", pattern))
+            .ok()
+            .map(|re| re.is_match(text))
+            .unwrap_or(false)
+        {
+            return true;
+        }
+    }
+    false
+}
 
 /// Evaluate a developer's prompt (UserPromptSubmit)
 pub fn evaluate_prompt(prompt: &str, policy: &Policy) -> Verdict {
@@ -55,6 +71,13 @@ pub fn evaluate_prompt(prompt: &str, policy: &Policy) -> Verdict {
 pub fn evaluate_command(command: &str, policy: &Policy) -> Verdict {
     crate::vlog!("  check:command {:?}", command);
     if policy.bash.enabled {
+        // Allowlist wins over blocklist — check first.
+        if !policy.bash.allow_patterns.is_empty()
+            && is_explicitly_allowed(command, &policy.bash.allow_patterns)
+        {
+            crate::vlog!("    ✓ allow (allowlist match)");
+            return Verdict::Allow;
+        }
         crate::vlog!(
             "    detector:bash_patterns ({} patterns)",
             policy.bash.block_patterns.len()
@@ -71,6 +94,12 @@ pub fn evaluate_command(command: &str, policy: &Policy) -> Verdict {
 /// Evaluate a file read path (PreToolUse → Read)
 pub fn evaluate_file_read(path: &str, policy: &Policy) -> Verdict {
     crate::vlog!("  check:read_path {:?}", path);
+    if !policy.file_paths.allow_read.is_empty()
+        && paths::is_glob_allowed(path, &policy.file_paths.allow_read)
+    {
+        crate::vlog!("    ✓ allow (allow_read match)");
+        return Verdict::Allow;
+    }
     crate::vlog!(
         "    detector:blocked_file_read ({} patterns)",
         policy.file_paths.block_read.len()
@@ -86,6 +115,12 @@ pub fn evaluate_file_read(path: &str, policy: &Policy) -> Verdict {
 /// Evaluate a file write path (PreToolUse → Write/Edit)
 pub fn evaluate_file_write(path: &str, policy: &Policy) -> Verdict {
     crate::vlog!("  check:write_path {:?}", path);
+    if !policy.file_paths.allow_write.is_empty()
+        && paths::is_glob_allowed(path, &policy.file_paths.allow_write)
+    {
+        crate::vlog!("    ✓ allow (allow_write match)");
+        return Verdict::Allow;
+    }
     crate::vlog!(
         "    detector:blocked_file_write ({} patterns)",
         policy.file_paths.block_write.len()
@@ -101,6 +136,17 @@ pub fn evaluate_file_write(path: &str, policy: &Policy) -> Verdict {
 /// Evaluate a URL (PreToolUse → WebFetch)
 pub fn evaluate_url(url: &str, policy: &Policy) -> Verdict {
     crate::vlog!("  check:url {:?}", url);
+    // URL allowlist: explicit allow (e.g. trusted internal registries) wins over blocklist.
+    if !policy.urls.allowlist.is_empty()
+        && policy
+            .urls
+            .allowlist
+            .iter()
+            .any(|allowed| url.contains(allowed.as_str()))
+    {
+        crate::vlog!("    ✓ allow (url allowlist match)");
+        return Verdict::Allow;
+    }
     crate::vlog!(
         "    detector:url_blocklist ({} entries)",
         policy.urls.blocklist.len()

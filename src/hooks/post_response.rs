@@ -98,11 +98,14 @@ mod cursor_tests {
             bash: BashPolicy {
                 enabled: false,
                 block_patterns: vec![],
+                allow_patterns: vec![],
                 block_on_error: false,
             },
             file_paths: FilePathPolicy {
                 block_read: vec![],
                 block_write: vec![],
+                allow_read: vec![],
+                allow_write: vec![],
             },
             pii: PiiPolicy {
                 block_in_prompt: false,
@@ -110,9 +113,14 @@ mod cursor_tests {
                 redact_in_response: true,
                 types: vec!["ssn".into(), "email".into(), "credit_card".into()],
             },
-            urls: UrlPolicy { blocklist: vec![] },
+            urls: UrlPolicy {
+                blocklist: vec![],
+                allowlist: vec![],
+            },
             injection: InjectionPolicy { enabled: false },
             webhook: None,
+            version: None,
+            remote_policy_url: None,
         }
     }
 

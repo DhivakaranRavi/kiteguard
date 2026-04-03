@@ -17,7 +17,7 @@
 [![CI](https://github.com/DhivakaranRavi/kiteguard/actions/workflows/ci.yml/badge.svg)](https://github.com/DhivakaranRavi/kiteguard/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Built with Rust](https://img.shields.io/badge/built%20with-Rust-orange.svg)
-![Tests](https://img.shields.io/badge/tests-190%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-397%20passing-brightgreen.svg)
 ![Security](https://img.shields.io/badge/security-OWASP%20audited-green.svg)
 
 ---
@@ -123,6 +123,9 @@ Works with secure defaults. To customize for your org, create `~/.kiteguard/rule
 | `kiteguard policy list` | Print all active policy settings |
 | `kiteguard policy path` | Print the path to the active `rules.json` file |
 | `kiteguard policy sign` | Re-sign `rules.json` after manual edits |
+| `kiteguard test <type> <input>` | Dry-run any input against the live policy (exits 2 on block) |
+| `kiteguard test --json <type> <input>` | Same, with machine-readable JSON output |
+| `kiteguard explain [section]` | Print every active rule with human-readable descriptions |
 | `kiteguard --version` | Print version |
 | `kiteguard --help` | Show help |
 
@@ -188,7 +191,7 @@ Built in Rust as a single static binary. No runtime dependencies.
 - Policy engine in `src/engine/`
 - Audit logging in `src/audit/`
 
-See [docs/architecture.md](docs/architecture.md) for the full technical design.
+See [docs/src/reference/architecture.md](docs/src/reference/architecture.md) for the full technical design.
 
 ---
 
@@ -205,7 +208,7 @@ kiteguard has been audited against the [OWASP Top 10](https://owasp.org/www-proj
 - **Bounded caches** — regex and glob caches are capped (512 / 256 entries) to prevent memory exhaustion
 - **Monotonic rate limiter** — uses `Instant` (not `SystemTime`) so clock skew can't bypass limits
 - **Multi-layer SSRF protection** — handles hex, octal, decimal, IPv4-mapped IPv6, and double-encoded URLs
-- **190 tests** — unit + integration tests run on Ubuntu and macOS in CI
+- **397 tests** — unit + integration tests run on Ubuntu and macOS in CI
 
 ---
 
