@@ -121,6 +121,7 @@ mod cursor_tests {
             webhook: None,
             version: None,
             remote_policy_url: None,
+            approval: Default::default(),
         }
     }
 

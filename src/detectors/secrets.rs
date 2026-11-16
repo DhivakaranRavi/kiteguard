@@ -87,10 +87,31 @@ fn compiled() -> &'static Vec<(Regex, String)> {
     })
 }
 
+/// `api_key = os.environ['API_KEY']` reads a secret from the environment; it does not contain one.
+fn is_code_reference(matched: &str) -> bool {
+    let m = matched.to_lowercase();
+    [
+        "environ",
+        "getenv",
+        "getpass",
+        "process.env",
+        "secretsmanager",
+    ]
+    .iter()
+    .any(|k| m.contains(k))
+}
+
 /// Scans text for secrets and credentials.
 pub fn scan(text: &str) -> Option<Verdict> {
     for (re, description) in compiled() {
-        if re.is_match(text) {
+        if description == ".env secret value" {
+            if re.find_iter(text).any(|m| !is_code_reference(m.as_str())) {
+                return Some(Verdict::block(
+                    "secret_detected",
+                    format!("{} detected in content", description),
+                ));
+            }
+        } else if re.is_match(text) {
             return Some(Verdict::block(
                 "secret_detected",
                 format!("{} detected in content", description),
@@ -105,6 +126,13 @@ mod tests {
     use super::*;
 
     // --- AWS ---
+
+    #[test]
+    fn allows_reading_secret_from_environment() {
+        assert!(scan("api_key = os.environ['API_KEY']").is_none());
+        assert!(scan("password = getpass.getpass()").is_none());
+        assert!(scan("API_KEY=abcdef1234567890abcdef").is_some());
+    }
 
     #[test]
     fn blocks_aws_access_key() {

@@ -74,6 +74,13 @@ pub fn run(args: &[String]) -> Result<()> {
                 "rule": rule,
                 "reason": reason
             }),
+            Verdict::Confirm { rule, reason } => serde_json::json!({
+                "verdict": "confirm",
+                "type": kind,
+                "input": input,
+                "rule": rule,
+                "reason": reason
+            }),
             Verdict::Redact { original, redacted } => serde_json::json!({
                 "verdict": "redact",
                 "type": kind,
@@ -91,6 +98,13 @@ pub fn run(args: &[String]) -> Result<()> {
             }
             Verdict::Block { rule, reason } => {
                 println!("✗  BLOCK");
+                println!("   type:   {}", kind);
+                println!("   input:  {}", input);
+                println!("   rule:   {}", rule);
+                println!("   reason: {}", reason);
+            }
+            Verdict::Confirm { rule, reason } => {
+                println!("?  CONFIRM (human approval required)");
                 println!("   type:   {}", kind);
                 println!("   input:  {}", input);
                 println!("   rule:   {}", rule);

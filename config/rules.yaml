@@ -119,6 +119,14 @@ urls:
 injection:
   enabled: true
 
+# ── Human approval ────────────────────────────────────────────────────────────
+# Irreversible external actions (publish, deploy, send mail, mutating API calls,
+# database writes, privileged ssh) are not blocked; the host asks a human.
+approval:
+  enabled: true
+  unknown_programs: false         # true (strict): also ask for any program outside the built-in dev/read-only list
+  block_instead_of_ask: false     # true: treat every approval as a block (CI / unattended runs)
+
 # ── Webhook (optional — for central dashboards) ───────────────────────────────
 webhook:
   enabled: false

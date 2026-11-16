@@ -7,6 +7,9 @@ use std::sync::{Mutex, OnceLock};
 /// Inputs longer than this are truncated before matching.
 const MAX_MATCH_LEN: usize = 4096;
 
+/// Overlap between consecutive scan windows so a match straddling a boundary is still seen.
+const WINDOW_OVERLAP: usize = 512;
+
 /// Maximum number of compiled regex entries to keep in the bash pattern cache.
 /// Prevents unbounded memory growth if rules.json contains many unique patterns.
 const MAX_BASH_CACHE: usize = 512;
@@ -59,23 +62,34 @@ fn cached_bash_regex(pattern: &str) -> Option<Regex> {
 
 /// Scans a bash command against configured block patterns.
 pub fn scan(command: &str, patterns: &[String]) -> Option<Verdict> {
-    // Truncate at a safe UTF-8 char boundary to avoid panicking when byte index
-    // MAX_MATCH_LEN falls inside a multi-byte character.  Without this, a crafted
-    // payload with a 2-4 byte char at position 4096 panics the process (exit 101),
-    // bypassing the fail-closed guard in main.rs.
-    let safe_input = if command.len() > MAX_MATCH_LEN {
-        // Find the largest valid UTF-8 char boundary at or before MAX_MATCH_LEN.
-        // `str::floor_char_boundary` was stabilised in 1.91.0 which exceeds our
-        // MSRV of 1.75.0, so we implement the equivalent manually.
-        let mut boundary = MAX_MATCH_LEN;
-        while !command.is_char_boundary(boundary) {
-            boundary -= 1;
+    // Scan the whole command in overlapping MAX_MATCH_LEN windows. Truncating to
+    // the first window would let an attacker pad the command so the payload sits
+    // past the cut-off. Windows start/end on UTF-8 char boundaries (floor_char_boundary
+    // is not available at our MSRV).
+    let mut start = 0;
+    loop {
+        let mut end = (start + MAX_MATCH_LEN).min(command.len());
+        while !command.is_char_boundary(end) {
+            end -= 1;
         }
-        &command[..boundary]
-    } else {
-        command
-    };
+        if let Some(v) = scan_window(&command[start..end], patterns) {
+            return Some(v);
+        }
+        if end >= command.len() {
+            return None;
+        }
+        let mut next = end.saturating_sub(WINDOW_OVERLAP);
+        while !command.is_char_boundary(next) {
+            next += 1;
+        }
+        start = next.max(start + 1);
+        while !command.is_char_boundary(start) {
+            start += 1;
+        }
+    }
+}
 
+fn scan_window(safe_input: &str, patterns: &[String]) -> Option<Verdict> {
     for pattern in patterns {
         if let Some(re) = cached_bash_regex(pattern) {
             if re.is_match(safe_input) {
@@ -167,6 +181,22 @@ mod tests {
         let big = "a".repeat(5000) + "🔥" + &"b".repeat(100);
         let result = scan(&big, &pats(&[r"rm\s+-rf"]));
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn payload_after_padding_is_still_caught() {
+        let cmd = format!("echo ok;{}rm -rf /home/u", " ".repeat(5000));
+        assert!(scan(&cmd, &pats(&[r"rm\s+-rf"])).is_some());
+    }
+
+    #[test]
+    fn payload_straddling_window_boundary_is_caught() {
+        let cmd = format!(
+            "{}rm -rf /x{}",
+            "a".repeat(MAX_MATCH_LEN - 4),
+            "b".repeat(2000)
+        );
+        assert!(scan(&cmd, &pats(&[r"rm\s+-rf"])).is_some());
     }
 
     #[test]
