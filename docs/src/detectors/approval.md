@@ -24,4 +24,4 @@ Runs after all block detectors, on shell commands only (`src/detectors/approval.
 | Cursor | preToolUse, beforeShellExecution, beforeMCPExecution | `{"permission":"ask",...}`, exit 0 |
 | Gemini, other events, unknown hosts | any | degrades to a block |
 
-A host that cannot prompt gets a block, never a silent allow.
+By default (`block_instead_of_ask: true`) these actions are blocked. A host that cannot prompt always gets a block, never a silent allow.

@@ -234,7 +234,7 @@ fn main() -> Result<()> {
         engine::verdict::Verdict::Confirm { rule, reason } if !can_ask => {
             engine::verdict::Verdict::Block {
                 rule,
-                reason: format!("{reason} (needs human approval; this host cannot prompt)"),
+                reason: format!("{reason} (irreversible action blocked; needs human approval)"),
             }
         }
         v => v,

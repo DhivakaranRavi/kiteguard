@@ -15,8 +15,12 @@ fn has(args: &[String], s: &str) -> bool {
 }
 
 fn dry_run(args: &[String]) -> bool {
-    args.iter().any(|a| {
-        a.starts_with("--dry-run") || a == "--check" || a == "--simulate" || a == "--what-if"
+    args.iter().any(|a| match a.strip_prefix("--dry-run") {
+        Some("") => true,
+        Some(v) => v
+            .strip_prefix('=')
+            .is_some_and(|v| !matches!(v, "false" | "none" | "no" | "0" | "off")),
+        None => a == "--check" || a == "--simulate" || a == "--what-if",
     })
 }
 
@@ -485,6 +489,14 @@ mod tests {
 
     fn asks(c: &str) -> bool {
         scan(c, false).is_some_and(|v| v.is_confirm())
+    }
+
+    #[test]
+    fn dry_run_false_is_not_a_dry_run() {
+        assert!(asks("npm publish --dry-run=false"));
+        assert!(asks("kubectl apply -f prod.yaml --dry-run=none"));
+        assert!(!asks("kubectl apply -f dev.yaml --dry-run=client"));
+        assert!(!asks("npm publish --dry-run"));
     }
 
     #[test]
