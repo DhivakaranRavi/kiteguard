@@ -16,6 +16,7 @@
 - [PII Detection](configuration/pii.md)
 - [Prompt Injection](configuration/injection.md)
 - [URL Blocking](configuration/urls.md)
+- [Human Approval](configuration/approval.md)
 - [Webhook Integration](configuration/webhook.md)
 
 # Hooks
@@ -42,6 +43,7 @@
 - [Secrets Detector](detectors/secrets.md)
 - [Injection Detector](detectors/injection.md)
 - [URL Detector](detectors/urls.md)
+- [Approval Detector](detectors/approval.md)
 
 # Reference
 
@@ -50,3 +52,4 @@
 - [Audit Log](reference/audit-log.md)
 - [Console](reference/console.md)
 - [Contributing](reference/contributing.md)
+- [Changelog](../../CHANGELOG.md)

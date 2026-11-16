@@ -2,6 +2,27 @@ use crate::error::Result;
 use serde_json::Value;
 use std::fs;
 
+/// Adds kiteguard to each event in Claude Code's documented nested format,
+/// replacing stale kiteguard entries (including the old flat form) and
+/// preserving any other hooks the user has configured.
+fn merge_claude_hooks(settings: &mut Value, binary_path: &str) {
+    if !settings["hooks"].is_object() {
+        settings["hooks"] = serde_json::json!({});
+    }
+    for event in ["UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop"] {
+        let mut entries: Vec<Value> = settings["hooks"][event]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        entries.retain(|e| !e.to_string().contains("kiteguard"));
+        entries.push(serde_json::json!({
+            "matcher": "*",
+            "hooks": [{ "type": "command", "command": binary_path, "timeout": 30 }]
+        }));
+        settings["hooks"][event] = Value::Array(entries);
+    }
+}
+
 /// kiteguard init — registers all hooks in ~/.claude/settings.json
 pub fn run() -> Result<()> {
     let binary_path = current_binary_path()?;
@@ -13,20 +34,17 @@ pub fn run() -> Result<()> {
     let mut settings: Value = if settings_path.exists() {
         let content = fs::read_to_string(&settings_path)
             .map_err(|e| format!("Failed to read ~/.claude/settings.json: {}", e))?;
-        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+        serde_json::from_str(&content).map_err(|e| {
+            format!(
+                "~/.claude/settings.json is not valid JSON ({}); fix it first",
+                e
+            )
+        })?
     } else {
         serde_json::json!({})
     };
 
-    // Inject kiteguard hooks
-    let hooks = serde_json::json!({
-        "UserPromptSubmit": [{ "command": binary_path }],
-        "PreToolUse":       [{ "command": binary_path }],
-        "PostToolUse":      [{ "command": binary_path }],
-        "Stop":             [{ "command": binary_path }]
-    });
-
-    settings["hooks"] = hooks;
+    merge_claude_hooks(&mut settings, &binary_path);
 
     // Write back
     let parent = settings_path
@@ -72,6 +90,9 @@ Manually run: chmod 700 {}",
         }
     }
 
+    // Scaffold a rules.json with all default fields (only if one doesn't exist yet)
+    scaffold_rules_json(&config_dir)?;
+
     // Generate signing key (if none exists) and sign the current policy.
     // This establishes the integrity baseline — any future tampering is detected.
     sign_policy(&config_dir)?;
@@ -90,6 +111,121 @@ Manually run: chmod 700 {}",
     println!("\nEvery Claude Code session is now guarded.");
     println!("After editing rules.json, run: kiteguard policy sign");
 
+    Ok(())
+}
+
+/// Write a starter `rules.json` to `config_dir` only if one does not already
+/// exist. The scaffolded file includes every v0.2.0 field with comments-as-keys
+/// stripped (JSON has no comments — explanation lives in config/rules.yaml).
+fn scaffold_rules_json(config_dir: &std::path::Path) -> Result<()> {
+    let rules_path = config_dir.join("rules.json");
+    if rules_path.exists() {
+        return Ok(());
+    }
+
+    let default_policy = serde_json::json!({
+        "version": "1.0.0",
+        "bash": {
+            "enabled": true,
+            "block_on_error": true,
+            "block_patterns": [
+                "curl[^|]*\\|[^|]*(bash|sh)",
+                "wget[^|]*\\|[^|]*(bash|sh)",
+                "rm\\s+-rf\\s+/",
+                "rm\\s+-rf\\s+~",
+                "rm\\s+-rf\\s+\\$HOME",
+                "eval\\s*\\(.*base64",
+                "/dev/tcp/",
+                "nc\\s+-e\\s+/bin",
+                "chmod\\s+777",
+                ">\\s*/etc/",
+                "crontab\\s+-",
+                "python3?\\s+-c\\s+.*exec\\s*\\(",
+                "perl\\s+-e\\s+.{0,80}(system|exec|backtick|\\.open)",
+                "mkfifo.*&&.*nc",
+                "bash\\s+-i\\s+>&?",
+                "sh\\s+-i\\s+>&?",
+                "dd\\s+if=/dev/\\w+\\s+of=/dev/\\w+",
+                ":\\s*\\(\\s*\\)\\s*\\{\\s*:\\|:"
+            ],
+            "allow_patterns": []
+        },
+        "file_paths": {
+            "block_read": [
+                "**/.ssh/**",
+                "**/.aws/credentials",
+                "**/.gnupg/**",
+                "**/.env",
+                "**/secrets/**",
+                "**/id_rsa",
+                "**/id_ed25519"
+            ],
+            "allow_read": [],
+            "block_write": [
+                "**/.claude/settings.json",
+                "/etc/**",
+                "**/.ssh/**",
+                "**/.aws/credentials",
+                "**/cron*",
+                "**/.bashrc",
+                "**/.bash_profile",
+                "**/.zshrc",
+                "**/.profile",
+                "**/.bash_logout"
+            ],
+            "allow_write": []
+        },
+        "pii": {
+            "block_in_prompt": true,
+            "block_in_file_content": true,
+            "redact_in_response": true,
+            "types": ["ssn", "credit_card", "email", "phone"]
+        },
+        "urls": {
+            "blocklist": [
+                "169.254.169.254",
+                "metadata.google.internal",
+                "metadata.azure.com"
+            ],
+            "allowlist": []
+        },
+        "injection": {
+            "enabled": true
+        },
+        "webhook": {
+            "enabled": false,
+            "url": "",
+            "token": null,
+            "hmac_secret": null
+        }
+    });
+
+    let json = serde_json::to_string_pretty(&default_policy)
+        .map_err(|e| format!("Failed to serialise default policy: {}", e))?;
+
+    #[cfg(unix)]
+    {
+        use std::io::Write;
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(&rules_path)
+            .map_err(|e| format!("Failed to create rules.json: {}", e))?;
+        f.write_all(json.as_bytes())
+            .map_err(|e| format!("Failed to write rules.json: {}", e))?;
+    }
+    #[cfg(not(unix))]
+    {
+        fs::write(&rules_path, &json).map_err(|e| format!("Failed to write rules.json: {}", e))?;
+    }
+
+    println!(
+        "  rules.json:           {} (edit to customise policy)",
+        rules_path.display()
+    );
     Ok(())
 }
 
@@ -450,4 +586,24 @@ pub fn run_gemini(verbose: bool) -> Result<()> {
     println!("Verify with: kiteguard audit");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod claude_hook_tests {
+    use super::*;
+
+    #[test]
+    fn writes_nested_format_and_preserves_other_hooks() {
+        let mut s = serde_json::json!({"hooks":{"PreToolUse":[
+            {"command":"/old/kiteguard"},
+            {"matcher":"Bash","hooks":[{"type":"command","command":"/x/other.sh"}]}
+        ]}});
+        merge_claude_hooks(&mut s, "/bin/kiteguard");
+        merge_claude_hooks(&mut s, "/bin/kiteguard");
+        let pre = s["hooks"]["PreToolUse"].as_array().unwrap();
+        assert_eq!(pre.len(), 2);
+        assert_eq!(pre[1]["hooks"][0]["type"], "command");
+        assert_eq!(pre[1]["hooks"][0]["command"], "/bin/kiteguard");
+        assert!(s["hooks"]["Stop"][0]["hooks"].is_array());
+    }
 }

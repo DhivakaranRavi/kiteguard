@@ -88,19 +88,72 @@ pub fn handle(input: &str, policy: &Policy) -> Result<Verdict> {
             Verdict::Allow
         }
         _ => {
-            // Unrecognised tool — allow but warn loudly so version skew doesn't
-            // create a silent security gap. Update kiteguard if a new tool appears.
-            eprintln!(
-                "kiteguard: WARNING — unrecognised tool '{}'; security checks skipped. \
-If this is a new tool from your AI runtime, update kiteguard to add explicit handling.",
-                payload.tool_name
-            );
-            crate::vlog!("  unknown tool — allow");
-            Verdict::Allow
+            crate::vlog!("  unrecognised tool — generic scan of tool_input");
+            scan_generic(&payload.tool_input, policy)
         }
     };
 
     Ok(verdict)
+}
+
+/// Fallback for tools without a dedicated handler (Glob, NotebookEdit, WebSearch,
+/// `mcp__*`, future tools): route well-known keys to the matching evaluator and
+/// scan every string value for secrets, PII and injection.
+fn scan_generic(input: &Value, policy: &Policy) -> Verdict {
+    let mut texts = Vec::new();
+    let mut ask = None;
+    if let Some(v) = walk_generic(input, policy, &mut texts, &mut ask) {
+        return v;
+    }
+    if !texts.is_empty() {
+        let v = evaluator::evaluate_file_content(&texts.join("\n"), policy);
+        if v.severity() > 0 {
+            return v;
+        }
+    }
+    ask.unwrap_or(Verdict::Allow)
+}
+
+fn walk_generic(
+    value: &Value,
+    policy: &Policy,
+    texts: &mut Vec<String>,
+    ask: &mut Option<Verdict>,
+) -> Option<Verdict> {
+    match value {
+        Value::Object(map) => {
+            for (key, val) in map {
+                if let Some(s) = val.as_str() {
+                    let verdict = match key.as_str() {
+                        "command" | "cmd" => evaluator::evaluate_command(s, policy),
+                        "url" | "uri" => evaluator::evaluate_url(s, policy),
+                        "file_path" | "path" | "notebook_path" => {
+                            evaluator::evaluate_file_read(s, policy)
+                        }
+                        _ => Verdict::Allow,
+                    };
+                    if verdict.is_block() {
+                        return Some(verdict);
+                    }
+                    if verdict.is_confirm() && ask.is_none() {
+                        *ask = Some(verdict);
+                    }
+                    texts.push(s.to_string());
+                } else if let Some(v) = walk_generic(val, policy, texts, ask) {
+                    return Some(v);
+                }
+            }
+            None
+        }
+        Value::Array(items) => items
+            .iter()
+            .find_map(|v| walk_generic(v, policy, texts, ask)),
+        Value::String(s) => {
+            texts.push(s.clone());
+            None
+        }
+        _ => None,
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -183,7 +236,7 @@ pub fn handle_mcp_exec(input: &str, policy: &Policy) -> Result<Verdict> {
     if let Some(ref cmd) = payload.command {
         crate::vlog!("  mcp command={:?}", cmd);
         let v = evaluator::evaluate_command(cmd, policy);
-        if matches!(v, Verdict::Block { .. }) {
+        if v.severity() > 0 {
             return Ok(v);
         }
     }
@@ -220,11 +273,14 @@ mod tests {
             bash: BashPolicy {
                 enabled: true,
                 block_patterns: vec![r"rm\s+-rf".to_string()],
+                allow_patterns: vec![],
                 block_on_error: true,
             },
             file_paths: FilePathPolicy {
                 block_read: vec!["**/.ssh/**".to_string(), "**/.env".to_string()],
                 block_write: vec!["/etc/**".to_string()],
+                allow_read: vec![],
+                allow_write: vec![],
             },
             pii: PiiPolicy {
                 block_in_prompt: true,
@@ -234,10 +290,42 @@ mod tests {
             },
             urls: UrlPolicy {
                 blocklist: vec!["evil.com".to_string()],
+                allowlist: vec![],
             },
             injection: InjectionPolicy { enabled: true },
             webhook: None,
+            version: None,
+            remote_policy_url: None,
+            approval: Default::default(),
         }
+    }
+
+    // ── generic fallback ─────────────────────────────────────────────────────
+
+    #[test]
+    fn unknown_tool_with_blocked_url_is_blocked() {
+        let input = r#"{"tool_name":"mcp__x__fetch","tool_input":{"url":"https://evil.com/a"}}"#;
+        assert!(handle(input, &policy()).unwrap().is_block());
+    }
+
+    #[test]
+    fn unknown_tool_with_blocked_path_is_blocked() {
+        let input =
+            r#"{"tool_name":"NotebookRead","tool_input":{"notebook_path":"/home/u/.ssh/id_rsa"}}"#;
+        assert!(handle(input, &policy()).unwrap().is_block());
+    }
+
+    #[test]
+    fn unknown_tool_nested_secret_is_blocked() {
+        let input =
+            r#"{"tool_name":"mcp__x__send","tool_input":{"a":{"b":["AKIAIOSFODNN7EXAMPLE"]}}}"#;
+        assert!(handle(input, &policy()).unwrap().is_block());
+    }
+
+    #[test]
+    fn unknown_tool_benign_input_allowed() {
+        let input = r#"{"tool_name":"Glob","tool_input":{"pattern":"src/**/*.rs"}}"#;
+        assert!(!handle(input, &policy()).unwrap().is_block());
     }
 
     // ── handle_shell_exec ────────────────────────────────────────────────────

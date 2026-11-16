@@ -58,6 +58,16 @@ fn main() -> Result<()> {
     //   - "copilot" → VS Code Copilot ("hookEventName" camelCase in JSON payload)
     let client = if std::env::var("CLAUDE_HOOK_EVENT").is_ok() {
         "claude"
+    } else if matches!(
+        hook_event.as_str(),
+        "UserPromptSubmit" | "PreToolUse" | "PostToolUse" | "Stop"
+    ) && std::env::var("CURSOR_PROJECT_DIR").is_err()
+        && std::env::var("COPILOT_HOOK_EVENT").is_err()
+        && !input.contains("\"hookEventName\"")
+    {
+        // Real Claude Code sends PascalCase hook_event_name in the payload and
+        // does not set CLAUDE_HOOK_EVENT; Gemini uses BeforeTool/AfterTool etc.
+        "claude"
     } else if std::env::var("COPILOT_HOOK_EVENT").is_ok() {
         "copilot"
     } else if std::env::var("CURSOR_PROJECT_DIR").is_ok() {
@@ -102,6 +112,12 @@ fn main() -> Result<()> {
             std::process::exit(2);
         }
     };
+
+    // Propagate the policy version to the audit logger so it's recorded in every entry.
+    if let Some(ref ver) = policy.version {
+        audit::logger::set_policy_version(ver);
+    }
+
     vlog!(
         "policy loaded — injection={} bash={} pii_prompt={} pii_file={} urls={} paths_read={} paths_write={}",
         policy.injection.enabled,
@@ -176,6 +192,9 @@ fn main() -> Result<()> {
         engine::verdict::Verdict::Block { rule, reason } => {
             vlog!("verdict → BLOCK  rule={}  reason={}", rule, reason)
         }
+        engine::verdict::Verdict::Confirm { rule, reason } => {
+            vlog!("verdict → CONFIRM  rule={}  reason={}", rule, reason)
+        }
     }
 
     // Log every event to audit log.
@@ -200,7 +219,50 @@ fn main() -> Result<()> {
     // Gemini CLI: exit 0 + JSON stdout {"decision":"deny"} is the preferred block path.
     // Claude Code + Cursor: exit code 2 signals a block to the host.
     // Cursor also accepts exit code 2 as equivalent to permission: "deny" for all hook types.
+    // Confirm asks the human, but only where the host has a native ask channel on a
+    // pre-execution event. Everywhere else it degrades to Block (fail-closed).
+    let can_ask = !policy.approval.block_instead_of_ask
+        && matches!(
+            (client, hook_event.as_str()),
+            ("claude" | "copilot", "PreToolUse" | "preToolUse")
+                | (
+                    "cursor",
+                    "preToolUse" | "beforeShellExecution" | "beforeMCPExecution"
+                )
+        );
+    let verdict = match verdict {
+        engine::verdict::Verdict::Confirm { rule, reason } if !can_ask => {
+            engine::verdict::Verdict::Block {
+                rule,
+                reason: format!("{reason} (needs human approval; this host cannot prompt)"),
+            }
+        }
+        v => v,
+    };
     match verdict {
+        engine::verdict::Verdict::Confirm { reason, .. } => {
+            let msg = format!("kiteguard: {reason}. Approve to continue.");
+            if client == "cursor" {
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "permission": "ask",
+                        "user_message": msg,
+                        "agent_message": "kiteguard requires human approval for this action."
+                    })
+                );
+            } else {
+                println!(
+                    "{}",
+                    serde_json::json!({"hookSpecificOutput": {
+                        "hookEventName": "PreToolUse",
+                        "permissionDecision": "ask",
+                        "permissionDecisionReason": msg
+                    }})
+                );
+            }
+            std::process::exit(0);
+        }
         engine::verdict::Verdict::Allow | engine::verdict::Verdict::Redact { .. } => {
             if is_gemini || is_cursor {
                 println!("{{}}");

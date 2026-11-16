@@ -1,7 +1,9 @@
 pub mod audit;
+pub mod explain;
 pub mod init;
 pub mod policy;
 pub mod serve;
+pub mod test_policy;
 
 use crate::error::Result;
 
@@ -38,6 +40,8 @@ pub fn run() -> Result<()> {
             }
         }
         Some("policy") => policy::run(&args[2..]),
+        Some("test") => test_policy::run(&args[2..]),
+        Some("explain") => explain::run(&args[2..]),
         Some("--version") | Some("-V") => {
             println!("kiteguard {}", env!("CARGO_PKG_VERSION"));
             Ok(())
@@ -72,18 +76,24 @@ COMMANDS:
     policy                   View active security policies
     policy sign              Re-sign rules.json after manual edits
     serve [PORT]             Start the local dashboard (default port: 7070)
+    test <type> <input>      Dry-run: check input against active policy (no blocking)
+    explain [section]        Explain every active rule in plain English
     --version                Print version
+
+TEST TYPES (for 'kiteguard test'):
+    prompt   "<text>"        Test a user prompt
+    command  "<cmd>"         Test a bash command
+    read     "<path>"        Test a file read path
+    write    "<path>"        Test a file write path
+    url      "<url>"         Test a URL
+
+EXPLAIN SECTIONS (for 'kiteguard explain'):
+    bash  paths  pii  urls  injection  (omit for all)
 
 HOOKS (invoked automatically by the active agent runtime):
     Claude Code:     CLAUDE_HOOK_EVENT=UserPromptSubmit|PreToolUse|PostToolUse|Stop
     Cursor:          CURSOR_PROJECT_DIR env var + hook_event_name in JSON payload (camelCase)
     Gemini CLI:      hook_event_name in JSON payload (snake_case)
-
-ENVIRONMENT:
-    KITEGUARD_VERBOSE=1      Print step-by-step trace to stderr showing client
-                             detection, policy loaded, each detector run, and
-                             the final verdict. Output goes to stderr only and
-                             never affects the JSON stdout responses.
 "#
     );
 }

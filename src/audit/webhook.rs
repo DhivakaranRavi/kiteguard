@@ -274,6 +274,17 @@ Set the '{}' environment variable or remove the token field from your webhook co
         }
     };
 
+    // Compute HMAC-SHA256 signature over the request body if hmac_secret is configured.
+    // `hmac_secret` supports `$ENV_VAR` indirection (same convention as `token`).
+    let hmac_sig: Option<String> = config.hmac_secret.as_deref().and_then(|raw| {
+        let secret = if let Some(var) = raw.strip_prefix('$') {
+            std::env::var(var).ok().filter(|v| !v.is_empty())?
+        } else {
+            raw.to_string()
+        };
+        Some(hmac_sha256_hex(secret.as_bytes(), body.as_bytes()))
+    });
+
     let has_token = resolved_token
         .as_ref()
         .map(|t| !t.is_empty())
@@ -350,9 +361,15 @@ Set the '{}' environment variable or remove the token field from your webhook co
         .arg("-H")
         .arg("Content-Type: application/json")
         .arg("-H")
-        .arg("User-Agent: kiteguard/0.1.0")
-        .arg("--data")
-        .arg(format!("@{}", tmp_path.display()));
+        .arg("User-Agent: kiteguard/0.1.0");
+
+    // Add HMAC-SHA256 signature header when configured (v0.4 enterprise feature).
+    if let Some(ref sig) = hmac_sig {
+        cmd.arg("-H")
+            .arg(format!("X-KiteGuard-Signature: sha256={}", sig));
+    }
+
+    cmd.arg("--data").arg(format!("@{}", tmp_path.display()));
 
     if has_token {
         // Token via -K stdin keeps it out of `ps aux`.
@@ -428,6 +445,22 @@ abort webhook send",
 fn sanitize_curl_header_value(s: &str) -> String {
     s.chars()
         .filter(|c| *c != '\n' && *c != '\r' && *c != '"' && *c != '\0')
+        .collect()
+}
+
+/// Computes HMAC-SHA256(key, message) and returns the lowercase hex digest.
+/// Used to sign outbound webhook payloads (X-KiteGuard-Signature header).
+fn hmac_sha256_hex(key: &[u8], message: &[u8]) -> String {
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+    type HmacSha256 = Hmac<Sha256>;
+    let mut mac = HmacSha256::new_from_slice(key).expect("HMAC accepts any key length");
+    mac.update(message);
+    let result = mac.finalize();
+    result
+        .into_bytes()
+        .iter()
+        .map(|b| format!("{:02x}", b))
         .collect()
 }
 
@@ -553,5 +586,19 @@ mod tests {
     #[test]
     fn sanitize_clean_token_unchanged() {
         assert_eq!(sanitize_curl_header_value("mytoken123"), "mytoken123");
+    }
+
+    // --- hmac_sha256_hex ---
+
+    #[test]
+    fn hmac_known_vector() {
+        // RFC 4231 test vector #1: key=0x0b*20, data="Hi There"
+        let key = vec![0x0bu8; 20];
+        let msg = b"Hi There";
+        let result = hmac_sha256_hex(&key, msg);
+        assert_eq!(
+            result,
+            "b0344c61d8db38535ca8afceaf0bf12b881dc200c9833da726e9376c2e32cff7"
+        );
     }
 }

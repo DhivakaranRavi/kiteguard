@@ -13,11 +13,44 @@ webhook:
 
 ## Fields
 
-| Field        | Required | Default | Description                                            |
-|--------------|----------|---------|--------------------------------------------------------|
-| `url`        | yes      | —       | HTTPS endpoint to POST events to                       |
-| `token`      | no       | —       | Value of the `Authorization` header                    |
-| `timeout_ms` | no       | `500`   | Request timeout; webhook failure never blocks Claude   |
+| Field          | Required | Default | Description                                            |
+|----------------|----------|---------|--------------------------------------------------------|
+| `url`          | yes      | —       | HTTPS endpoint to POST events to                       |
+| `token`        | no       | —       | Value of the `Authorization` header                    |
+| `hmac_secret`  | no       | —       | Signs each POST with `X-KiteGuard-Signature` (v0.2.0)  |
+| `timeout_ms`   | no       | `500`   | Request timeout; webhook failure never blocks Claude   |
+
+## HMAC Signing (v0.2.0)
+
+Set `hmac_secret` to enable request signing. Every webhook POST will include an `X-KiteGuard-Signature: sha256=<hex>` header so receivers can verify authenticity.
+
+```yaml
+webhook:
+  enabled: true
+  url: "https://your-siem.example.com/events"
+  hmac_secret: "$KITEGUARD_WEBHOOK_SECRET"   # $ENV_VAR reference recommended
+```
+
+The signature is `HMAC-SHA256(secret, body)` encoded as lowercase hex, prefixed with `sha256=`.
+
+### Verifying in your receiver (Node.js example)
+
+```js
+const crypto = require('crypto');
+
+function verify(secret, body, header) {
+  const expected = 'sha256=' + crypto
+    .createHmac('sha256', secret)
+    .update(body)
+    .digest('hex');
+  return crypto.timingSafeEqual(
+    Buffer.from(header),
+    Buffer.from(expected)
+  );
+}
+```
+
+> Using an env-var reference (`$KITEGUARD_WEBHOOK_SECRET`) keeps secrets out of `rules.json`. kiteguard resolves it at runtime.
 
 ## Payload format
 

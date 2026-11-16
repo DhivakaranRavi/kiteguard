@@ -1,6 +1,6 @@
 [package]
 name        = "kiteguard"
-version     = "0.1.0"
+version     = "0.2.0"
 edition     = "2021"
 rust-version = "1.75"
 description = "Open-source runtime security guardrails for Claude Code, Cursor, and Gemini CLI"
@@ -22,7 +22,7 @@ path = "src/lib.rs"
 
 [dependencies]
 serde       = { version = "1", features = ["derive"] }
-serde_json  = "1"
+serde_json  = { version = "1", features = ["preserve_order"] }
 regex       = "1"
 sha2        = "0.10"
 hmac        = "0.12"

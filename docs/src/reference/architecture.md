@@ -72,6 +72,21 @@ Verdict: Allow | Block | Redact
 | Cursor | exit `0`, stdout `{}` | exit `2` |
 | Gemini CLI | exit `0`, stdout `{"decision":"allow"}` | exit `0`, stdout `{"decision":"deny", "reason":"..."}` |
 
+## Key components
+
+| Component | Doc | Source |
+|---|---|---|
+| Policy / rules.json | [rules.json Reference](../configuration/rules-yaml.md) | [policy.rs](https://github.com/DhivakaranRavi/kiteguard/blob/main/src/engine/policy.rs) |
+| Command detector | [Command Detector](../detectors/commands.md) | [commands.rs](https://github.com/DhivakaranRavi/kiteguard/blob/main/src/detectors/commands.rs) |
+| Path detector | [Path Detector](../detectors/paths.md) | [paths.rs](https://github.com/DhivakaranRavi/kiteguard/blob/main/src/detectors/paths.rs) |
+| PII detector | [PII Detector](../detectors/pii.md) | [pii.rs](https://github.com/DhivakaranRavi/kiteguard/blob/main/src/detectors/pii.rs) |
+| Secrets detector | [Secrets Detector](../detectors/secrets.md) | [secrets.rs](https://github.com/DhivakaranRavi/kiteguard/blob/main/src/detectors/secrets.rs) |
+| Injection detector | [Injection Detector](../detectors/injection.md) | [injection.rs](https://github.com/DhivakaranRavi/kiteguard/blob/main/src/detectors/injection.rs) |
+| URL / SSRF detector | [URL Detector](../detectors/urls.md) | [urls.rs](https://github.com/DhivakaranRavi/kiteguard/blob/main/src/detectors/urls.rs) |
+| Audit log | [Audit Log](audit-log.md) | [logger.rs](https://github.com/DhivakaranRavi/kiteguard/blob/main/src/audit/logger.rs) |
+| Webhook | [Webhook Integration](../configuration/webhook.md) | [webhook.rs](https://github.com/DhivakaranRavi/kiteguard/blob/main/src/audit/webhook.rs) |
+| CLI | [CLI Reference](cli.md) | [cli/mod.rs](https://github.com/DhivakaranRavi/kiteguard/blob/main/src/cli/mod.rs) |
+
 ## Design principles
 
 - **Fail-closed** — crashes block, never allow
