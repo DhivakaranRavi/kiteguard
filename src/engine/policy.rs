@@ -86,8 +86,8 @@ pub struct InjectionPolicy {
 pub struct ApprovalPolicy {
     #[serde(default = "default_true")]
     pub enabled: bool,
-    /// Treat "ask" as "block". Use for headless/CI agents where nobody can approve.
-    #[serde(default)]
+    /// Treat "ask" as "block" (default). Set false to let supporting hosts prompt a human.
+    #[serde(default = "default_true")]
     pub block_instead_of_ask: bool,
     /// Ask for any program outside the built-in read-only/dev-tool list.
     #[serde(default)]
@@ -156,7 +156,7 @@ impl Default for ApprovalPolicy {
     fn default() -> Self {
         Self {
             enabled: true,
-            block_instead_of_ask: false,
+            block_instead_of_ask: true,
             unknown_programs: false,
         }
     }

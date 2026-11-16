@@ -125,7 +125,7 @@ injection:
 approval:
   enabled: true
   unknown_programs: false         # true (strict): also ask for any program outside the built-in dev/read-only list
-  block_instead_of_ask: false     # true: treat every approval as a block (CI / unattended runs)
+  block_instead_of_ask: true      # true (default): irreversible actions are blocked; false: ask a human where the host supports it
 
 # ── Webhook (optional — for central dashboards) ───────────────────────────────
 webhook:

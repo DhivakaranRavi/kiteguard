@@ -1,11 +1,11 @@
 # Human Approval
 
 ```json
-"approval": { "enabled": true, "block_instead_of_ask": false, "unknown_programs": false }
+"approval": { "enabled": true, "block_instead_of_ask": true, "unknown_programs": false }
 ```
 
 - `enabled` (default `true`): turn the approval rules off entirely.
-- `block_instead_of_ask` (default `false`): turn every approval into a block. Use it for unattended runs where nobody can answer a prompt.
+- `block_instead_of_ask` (default `true`): approval-class actions (publish, deploy, send, mutating HTTP, DB writes) are blocked. Set it to `false` to ask a human instead, on hosts that can prompt (Claude Code, Copilot, Cursor).
 
 - `unknown_programs` (default `false`): strict mode. Any program outside the built-in dev/read-only list asks for approval. More coverage, more prompts.
 
