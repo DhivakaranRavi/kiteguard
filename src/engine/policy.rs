@@ -14,6 +14,8 @@ pub struct Policy {
     pub urls: UrlPolicy,
     #[serde(default)]
     pub injection: InjectionPolicy,
+    #[serde(default)]
+    pub approval: ApprovalPolicy,
     pub webhook: Option<WebhookConfig>,
     /// Optional semantic version tag for this policy (e.g. "1.2.0").
     /// Recorded in the audit log so operators can correlate events to policy revisions.
@@ -78,6 +80,20 @@ pub struct InjectionPolicy {
     pub enabled: bool,
 }
 
+/// Human-approval gate for actions that are irreversible or externally visible
+/// but not provably malicious (publish, deploy, send mail, state-changing API calls).
+#[derive(Debug, Deserialize)]
+pub struct ApprovalPolicy {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// Treat "ask" as "block". Use for headless/CI agents where nobody can approve.
+    #[serde(default)]
+    pub block_instead_of_ask: bool,
+    /// Ask for any program outside the built-in read-only/dev-tool list.
+    #[serde(default)]
+    pub unknown_programs: bool,
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct WebhookConfig {
     pub enabled: bool,
@@ -136,6 +152,16 @@ impl Default for UrlPolicy {
     }
 }
 
+impl Default for ApprovalPolicy {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            block_instead_of_ask: false,
+            unknown_programs: false,
+        }
+    }
+}
+
 impl Default for InjectionPolicy {
     fn default() -> Self {
         Self { enabled: true }
@@ -175,12 +201,31 @@ fn default_bash_patterns() -> Vec<String> {
 fn default_block_read_paths() -> Vec<String> {
     vec![
         "**/.ssh/**".into(),
-        "**/.aws/credentials".into(),
+        "**/.aws/**".into(),
         "**/.gnupg/**".into(),
         "**/.env".into(),
+        "**/.env.*".into(),
         "**/secrets/**".into(),
         "**/id_rsa".into(),
         "**/id_ed25519".into(),
+        // Credential stores for common tools
+        "**/.npmrc".into(),
+        "**/.netrc".into(),
+        "**/.pypirc".into(),
+        "**/.kube/config".into(),
+        "**/.docker/config.json".into(),
+        "**/.config/gcloud/**".into(),
+        "**/.azure/**".into(),
+        "**/.pgpass".into(),
+        "**/.vault-token".into(),
+        "**/.config/gh/hosts.yml".into(),
+        "**/.config/doctl/**".into(),
+        "**/Library/Keychains/**".into(),
+        "**/*.keychain-db".into(),
+        "/var/run/secrets/**".into(),
+        "/etc/shadow".into(),
+        "/etc/sudoers".into(),
+        "/etc/sudoers.d/**".into(),
     ]
 }
 
@@ -190,13 +235,31 @@ fn default_block_write_paths() -> Vec<String> {
         "/etc/**".into(),
         "**/.ssh/**".into(),
         "**/.aws/credentials".into(),
-        "**/cron*".into(),
+        "**/cron/**".into(),
+        "**/cron.*/**".into(),
+        "**/crontab".into(),
+        "/var/spool/cron/**".into(),
         // Shell startup files — prevent reverse-shell persistence via profile injection
         "**/.bashrc".into(),
         "**/.bash_profile".into(),
         "**/.zshrc".into(),
         "**/.profile".into(),
         "**/.bash_logout".into(),
+        "**/.zprofile".into(),
+        "**/.zshenv".into(),
+        "**/.zlogin".into(),
+        "**/.config/fish/**".into(),
+        "**/.git/hooks/**".into(),
+        // Config that can run code or redirect credentials on the next git/launchd/PATH use
+        "**/.gitconfig".into(),
+        "**/Library/LaunchAgents/**".into(),
+        "**/Library/LaunchDaemons/**".into(),
+        "/usr/local/bin/**".into(),
+        "/usr/bin/**".into(),
+        "/bin/**".into(),
+        "/sbin/**".into(),
+        "**/.npmrc".into(),
+        "**/.kube/config".into(),
     ]
 }
 
@@ -214,6 +277,22 @@ fn default_blocked_domains() -> Vec<String> {
         "169.254.169.254".into(), // AWS/GCP metadata SSRF
         "metadata.google.internal".into(),
         "metadata.azure.com".into(),
+        // Public request-capture / out-of-band callback services used to exfiltrate data
+        "webhook.site".into(),
+        "pipedream.net".into(),
+        "requestbin.com".into(),
+        "requestbin.net".into(),
+        "requestcatcher.com".into(),
+        "burpcollaborator.net".into(),
+        "oast.fun".into(),
+        "oast.live".into(),
+        "oast.site".into(),
+        "interact.sh".into(),
+        "oast.pro".into(),
+        "oast.me".into(),
+        "ngrok.io".into(),
+        "ngrok-free.app".into(),
+        "trycloudflare.com".into(),
     ]
 }
 

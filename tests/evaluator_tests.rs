@@ -38,6 +38,7 @@ fn fully_enabled_policy() -> Policy {
         webhook: None,
         version: None,
         remote_policy_url: None,
+        approval: Default::default(),
     }
 }
 
@@ -69,6 +70,7 @@ fn all_disabled_policy() -> Policy {
         webhook: None,
         version: None,
         remote_policy_url: None,
+        approval: Default::default(),
     }
 }
 
@@ -303,6 +305,7 @@ fn policy_with_bash_allowlist() -> Policy {
         webhook: None,
         version: None,
         remote_policy_url: None,
+        approval: Default::default(),
     }
 }
 
@@ -334,6 +337,7 @@ fn policy_with_path_allowlist() -> Policy {
         webhook: None,
         version: None,
         remote_policy_url: None,
+        approval: Default::default(),
     }
 }
 

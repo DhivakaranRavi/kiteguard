@@ -59,8 +59,20 @@ pub fn is_glob_allowed(path: &str, allow_patterns: &[String]) -> bool {
     matches_any(path, allow_patterns)
 }
 
+/// `.env.example` and friends are committed templates with no real values.
+fn is_env_template(path: &str) -> bool {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    matches!(
+        name,
+        ".env.example" | ".env.sample" | ".env.template" | ".env.dist" | "example.env"
+    )
+}
+
 fn matches_any(path: &str, patterns: &[String]) -> bool {
-    let expanded = expand_home(path);
+    if is_env_template(path) {
+        return false;
+    }
+    let expanded = collapse_slashes(&expand_home(path));
 
     // Canonicalize to resolve symlinks so `~/.kiteguard/link -> /etc/passwd`
     // doesn't bypass the `/etc/**` block.
@@ -71,15 +83,40 @@ fn matches_any(path: &str, patterns: &[String]) -> bool {
     // Fix: for non-existent paths, canonicalize the deepest existing ancestor
     // and re-attach the remaining components.
     let canonical = canonicalize_best_effort(&expanded);
+    let lexical = normalize_dots(&expanded);
 
     for pattern in patterns {
         let expanded_pattern = expand_home(pattern);
         // Check both the literal path and the resolved canonical path
-        if glob_match(&expanded_pattern, &expanded) || glob_match(&expanded_pattern, &canonical) {
+        if glob_match(&expanded_pattern, &expanded)
+            || glob_match(&expanded_pattern, &canonical)
+            || glob_match(&expanded_pattern, &lexical)
+        {
             return true;
         }
     }
     false
+}
+
+/// Resolves `.` and `..` textually so `/proj/../etc/shadow` is seen as `/etc/shadow`
+/// even when `/proj` does not exist (canonicalize cannot help there).
+fn normalize_dots(path: &str) -> String {
+    let mut out: Vec<&str> = Vec::new();
+    for part in path.split('/') {
+        match part {
+            "" | "." => {}
+            ".." => {
+                out.pop();
+            }
+            p => out.push(p),
+        }
+    }
+    let joined = out.join("/");
+    if path.starts_with('/') {
+        format!("/{joined}")
+    } else {
+        joined
+    }
 }
 
 /// Canonicalize a path, resolving as many symlinks as possible even when the
@@ -130,6 +167,19 @@ fn canonicalize_best_effort(path: &str) -> String {
 
     // Absolute fallback: return original expanded path.
     path.to_string()
+}
+
+fn collapse_slashes(path: &str) -> String {
+    let mut out = String::with_capacity(path.len());
+    let mut prev_slash = false;
+    for c in path.chars() {
+        if c == '/' && prev_slash {
+            continue;
+        }
+        prev_slash = c == '/';
+        out.push(c);
+    }
+    out
 }
 
 fn expand_home(path: &str) -> String {

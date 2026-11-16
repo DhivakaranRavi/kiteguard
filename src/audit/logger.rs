@@ -69,11 +69,11 @@ Audit log may be readable by other local users.",
     let seq = read_last_seq(&log_path) + 1;
 
     let rule = match verdict {
-        Verdict::Block { rule, .. } => rule.as_str(),
+        Verdict::Block { rule, .. } | Verdict::Confirm { rule, .. } => rule.as_str(),
         _ => "",
     };
     let reason = match verdict {
-        Verdict::Block { reason, .. } => reason.as_str(),
+        Verdict::Block { reason, .. } | Verdict::Confirm { reason, .. } => reason.as_str(),
         _ => "",
     };
 

@@ -9,9 +9,29 @@ static INJECTION_PATTERNS: &[(&str, &str)] = &[
         r"(?i)ignore\s+(all\s+)?(previous|prior|above)\s+instructions",
         "ignore_previous_instructions",
     ),
-    (r"(?i)SYSTEM\s*:", "system_prefix_injection"),
+    (r"(?im)^\s*system\s*:", "system_prefix_injection"),
+    (r"(?i)</?system>", "system_tag_injection"),
     // "you are now a/an <role>" — lookahead not supported in Rust regex; match broadly
-    (r"(?i)you\s+are\s+now\s+(a\s+|an\s+)?\w", "role_override"),
+    (
+        r"(?i)you\s+are\s+now\s+(in\s+)?(developer|debug|admin|god|jailbreak|unrestricted|unfiltered|dan)\b|\bact\s+as\s+(dan|an?\s+(ai|assistant|model)\s+(without|with\s+no))\b|\b(without\s+any|with\s+no)\s+(rules|restrictions|limits|filters)\b",
+        "role_override",
+    ),
+    (
+        r"(?i)\b(ignore|forget)\s+(your|the)\s+(system\s+)?(message|prompt|instructions|guidelines|rules|training)\b",
+        "ignore_own_instructions",
+    ),
+    (
+        r"(?i)\b(do\s+not|don'?t|never)\s+tell\s+the\s+user\b|\bsilently\s+(run|execute|send|upload|forward|delete)\b|\brun\s+(them|it|these)\s+without\s+asking\b",
+        "covert_action_instruction",
+    ),
+    (
+        r"(?i)\b(safety\s+)?polic(y|ies)\s+(has|have)\s+been\s+(updated|changed|lifted|disabled)\b|\binstructions\s+you\s+were\s+given\b.{0,40}\b(outdated|obsolete|void|invalid)\b|\bnew\s+instructions?\s+from\s+the\s+user\b",
+        "policy_override_claim",
+    ),
+    (
+        r"(?i)\bhidden\s+(instruction|prompt|message)s?\s+for\s+(ai|the\s+assistant|llm)\b|\bprint\s+(every|all)\s+(secret|token|key|credential)s?\b|\bhidden\s+prompt\b",
+        "hidden_or_secret_request",
+    ),
     (
         r"(?i)disregard\s+(all\s+)?(previous|prior)\s+(instructions|rules)",
         "disregard_instructions",
@@ -28,6 +48,42 @@ static INJECTION_PATTERNS: &[(&str, &str)] = &[
     (
         r"(?i)\[INST\]|\[\/INST\]|<\|im_start\|>|<\|im_end\|>",
         "llm_token_injection",
+    ),
+    // Paraphrased overrides: "disregard what you were told earlier", "ignore the above"
+    (
+        r"(?i)\b(ignore|disregard|forget|override)\s+(the\s+above|everything\s+(above|before)|what\s+you\s+(were|have\s+been)\s+(told|instructed)|your\s+(earlier|previous|prior)\s+\w+)",
+        "paraphrased_override",
+    ),
+    (
+        r"(?i)\byour\s+(new|real|actual)\s+(job|task|goal|mission|instructions?)\s+(is|are)\b",
+        "task_reassignment",
+    ),
+    // Claims of authority used to lift restrictions
+    (
+        r"(?i)\b(bypass|disable|ignore|turn\s+off|lift)\s+(all\s+|any\s+|the\s+)?(restrictions|safety\s+(checks|rules|filters)|guardrails|content\s+polic(y|ies))",
+        "restriction_bypass",
+    ),
+    // Instructions addressed to an agent from inside data (web page, file, comment)
+    (
+        r"(?i)\b(ai|llm)\s+(agents?|assistants?|models?)\b.{0,40}\b(must|should|need\s+to|are\s+required\s+to)\b",
+        "addressed_to_agent",
+    ),
+    (
+        r"(?i)<!--\s*(assistant|system|ai|agent|llm)\s*:",
+        "hidden_comment_instruction",
+    ),
+    // Instruction to move secrets to someone else
+    (
+        r"(?i)\b(forward|send|email|post|upload|leak|exfiltrate)\s+(me\s+|all\s+|the\s+)?(contents?\s+of\s+)?\S*(\.ssh|id_rsa|\.env\b|api[\s_-]?keys?|credentials|private\s+keys?)",
+        "secret_transfer_instruction",
+    ),
+    (
+        r"(?i)\binstead\b.{0,30}\b(output|print|reveal|show|send)\b.{0,30}\b(api[\s_-]?keys?|credentials|secrets|passwords?|tokens?)",
+        "secret_disclosure_instruction",
+    ),
+    (
+        r"(?i)\bwhen\s+(you\s+)?(summari[sz]e|read|process)\b.{0,60}\b(first|then)\b.{0,40}\b(call|run|execute|use)\b.{0,30}\b(shell|bash|terminal|tool|command)",
+        "tool_call_instruction",
     ),
     // Base64 encoded instruction attempts
     (r"(?i)eval\s*\(\s*atob\s*\(", "base64_eval_injection"),

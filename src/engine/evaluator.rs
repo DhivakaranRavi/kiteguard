@@ -1,4 +1,4 @@
-use crate::detectors::{commands, injection, paths, pii, secrets, urls};
+use crate::detectors::{approval, commands, injection, paths, pii, secrets, structural, urls};
 use crate::engine::{policy::Policy, verdict::Verdict};
 use regex::Regex;
 
@@ -85,6 +85,21 @@ pub fn evaluate_command(command: &str, policy: &Policy) -> Verdict {
         if let Some(v) = commands::scan(command, &policy.bash.block_patterns) {
             crate::vlog!("    ✗ BLOCKED by bash_patterns");
             return v;
+        }
+        crate::vlog!("    detector:structural");
+        if let Some(v) = structural::scan(
+            command,
+            &policy.file_paths.block_read,
+            &policy.file_paths.block_write,
+        ) {
+            crate::vlog!("    ✗ BLOCKED by structural");
+            return v;
+        }
+        if policy.approval.enabled {
+            if let Some(v) = approval::scan(command, policy.approval.unknown_programs) {
+                crate::vlog!("    ? CONFIRM by approval");
+                return v;
+            }
         }
     }
     crate::vlog!("    ✓ allow");

@@ -2,8 +2,19 @@
 #[allow(dead_code)]
 pub enum Verdict {
     Allow,
-    Block { rule: String, reason: String },
-    Redact { original: String, redacted: String },
+    Block {
+        rule: String,
+        reason: String,
+    },
+    /// Not provably unsafe, but irreversible or externally visible: a human must approve.
+    Confirm {
+        rule: String,
+        reason: String,
+    },
+    Redact {
+        original: String,
+        redacted: String,
+    },
 }
 
 impl Verdict {
@@ -11,6 +22,27 @@ impl Verdict {
         Verdict::Block {
             rule: rule.into(),
             reason: reason.into(),
+        }
+    }
+
+    pub fn confirm(rule: impl Into<String>, reason: impl Into<String>) -> Self {
+        Verdict::Confirm {
+            rule: rule.into(),
+            reason: reason.into(),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn is_confirm(&self) -> bool {
+        matches!(self, Verdict::Confirm { .. })
+    }
+
+    /// Block > Confirm > everything else; used to pick the strongest of several verdicts.
+    pub fn severity(&self) -> u8 {
+        match self {
+            Verdict::Block { .. } => 2,
+            Verdict::Confirm { .. } => 1,
+            _ => 0,
         }
     }
 
@@ -28,6 +60,7 @@ impl Verdict {
         match self {
             Verdict::Allow => "allow",
             Verdict::Block { .. } => "block",
+            Verdict::Confirm { .. } => "confirm",
             Verdict::Redact { .. } => "redact",
         }
     }
@@ -61,6 +94,15 @@ mod tests {
         } else {
             panic!("expected Block variant");
         }
+    }
+
+    #[test]
+    fn confirm_ranks_between_allow_and_block() {
+        let c = Verdict::confirm("r", "why");
+        assert!(c.is_confirm() && !c.is_block() && !c.is_allow());
+        assert_eq!(c.as_str(), "confirm");
+        assert!(Verdict::block("r", "w").severity() > c.severity());
+        assert!(c.severity() > Verdict::Allow.severity());
     }
 
     #[test]

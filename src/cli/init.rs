@@ -2,6 +2,27 @@ use crate::error::Result;
 use serde_json::Value;
 use std::fs;
 
+/// Adds kiteguard to each event in Claude Code's documented nested format,
+/// replacing stale kiteguard entries (including the old flat form) and
+/// preserving any other hooks the user has configured.
+fn merge_claude_hooks(settings: &mut Value, binary_path: &str) {
+    if !settings["hooks"].is_object() {
+        settings["hooks"] = serde_json::json!({});
+    }
+    for event in ["UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop"] {
+        let mut entries: Vec<Value> = settings["hooks"][event]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
+        entries.retain(|e| !e.to_string().contains("kiteguard"));
+        entries.push(serde_json::json!({
+            "matcher": "*",
+            "hooks": [{ "type": "command", "command": binary_path, "timeout": 30 }]
+        }));
+        settings["hooks"][event] = Value::Array(entries);
+    }
+}
+
 /// kiteguard init — registers all hooks in ~/.claude/settings.json
 pub fn run() -> Result<()> {
     let binary_path = current_binary_path()?;
@@ -13,20 +34,17 @@ pub fn run() -> Result<()> {
     let mut settings: Value = if settings_path.exists() {
         let content = fs::read_to_string(&settings_path)
             .map_err(|e| format!("Failed to read ~/.claude/settings.json: {}", e))?;
-        serde_json::from_str(&content).unwrap_or(serde_json::json!({}))
+        serde_json::from_str(&content).map_err(|e| {
+            format!(
+                "~/.claude/settings.json is not valid JSON ({}); fix it first",
+                e
+            )
+        })?
     } else {
         serde_json::json!({})
     };
 
-    // Inject kiteguard hooks
-    let hooks = serde_json::json!({
-        "UserPromptSubmit": [{ "command": binary_path }],
-        "PreToolUse":       [{ "command": binary_path }],
-        "PostToolUse":      [{ "command": binary_path }],
-        "Stop":             [{ "command": binary_path }]
-    });
-
-    settings["hooks"] = hooks;
+    merge_claude_hooks(&mut settings, &binary_path);
 
     // Write back
     let parent = settings_path
@@ -568,4 +586,24 @@ pub fn run_gemini(verbose: bool) -> Result<()> {
     println!("Verify with: kiteguard audit");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod claude_hook_tests {
+    use super::*;
+
+    #[test]
+    fn writes_nested_format_and_preserves_other_hooks() {
+        let mut s = serde_json::json!({"hooks":{"PreToolUse":[
+            {"command":"/old/kiteguard"},
+            {"matcher":"Bash","hooks":[{"type":"command","command":"/x/other.sh"}]}
+        ]}});
+        merge_claude_hooks(&mut s, "/bin/kiteguard");
+        merge_claude_hooks(&mut s, "/bin/kiteguard");
+        let pre = s["hooks"]["PreToolUse"].as_array().unwrap();
+        assert_eq!(pre.len(), 2);
+        assert_eq!(pre[1]["hooks"][0]["type"], "command");
+        assert_eq!(pre[1]["hooks"][0]["command"], "/bin/kiteguard");
+        assert!(s["hooks"]["Stop"][0]["hooks"].is_array());
+    }
 }
